@@ -25,22 +25,22 @@ class NotificationIconGenerator(private val context: Context) {
 
         val (numStr, unitStr) = fmtSplit(speedDown)
 
-        // --- Number paint (top ~60% of icon) ---
+        // --- Number paint (top ~70% of icon) ---
         val numPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
             textAlign = Paint.Align.CENTER
             typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
             // Start large, shrink until text fits within 95% of width
-            textSize = size * 0.60f
+            textSize = size * 0.70f
             while (measureText(numStr) > size * 0.95f) textSize -= 0.5f
         }
 
-        // --- Unit paint (bottom ~38% of icon) ---
+        // --- Unit paint (bottom ~42% of icon) ---
         val unitPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
             textAlign = Paint.Align.CENTER
             typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD)
-            textSize = size * 0.36f
+            textSize = size * 0.42f
             while (measureText(unitStr) > size * 0.98f) textSize -= 0.5f
         }
 
@@ -52,8 +52,8 @@ class NotificationIconGenerator(private val context: Context) {
         val unitBounds = Rect()
         unitPaint.getTextBounds(unitStr, 0, unitStr.length, unitBounds)
 
-        // Stack the two text blocks with a 1px gap in the middle of the canvas
-        val gap = 1f
+        // Stack the two text blocks with no gap to maximise fill
+        val gap = 0f
         val totalH = numBounds.height() + gap + unitBounds.height()
         val topY = (size - totalH) / 2f
 
