@@ -1,0 +1,46 @@
+## Android / Java / Gradle
+# Gradle files
+.gradle/
+/build/
+/app/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Local configuration
+local.properties
+
+# IntelliJ/Android Studio
+/.idea/
+*.iml
+
+# Keystore files
+*.jks
+*.keystore
+debug.keystore
+
+# Built application files
+*.apk
+*.ap_
+
+# Files for the ART/Dalvik VM
+*.dex
+
+# Java class files
+*.class
+
+# Generated files
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Gradle wrapper
+gradle-wrapper.jar
+
+# Google services (may contain secrets)
+google-services.json
+
+# Misc
+.DS_Store
+Thumbs.db
+
+# Android Studio profiler
+.android/
