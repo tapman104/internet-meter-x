@@ -14,7 +14,7 @@ This file documents how Gemini (Google DeepMind) was used during development of 
 | 2026-05-04 | **Battery**: Stricter adaptive polling (60s in Doze, 15s screen-off, 3s idle) to reduce CPU wakeups. | `SpeedMeterService.kt` |
 | 2026-05-04 | Fixed compilation error: Added missing `kotlin.math.abs` import. | `TrafficStatsProvider.kt` |
 | 2026-05-04 | **UI/UX**: Refactored Settings into categories (Notifications, General, About, Support). Added GitHub, PayPal, and Coffee links. | `SettingsActivity.kt`, `activity_settings.xml` |
-| 2026-05-04 | **UI/UX**: Integrated History into Home screen with dynamic "View More" and simplified total usage display. | `MainActivity.kt`, `HistoryAdapter.kt`, `activity_main.xml` |
+| 2026-05-04 | **UI/UX**: Integrated History into Home screen with dynamic "View More" and simplified breakdown (Mobile | WiFi | Total). | `MainActivity.kt`, `HistoryAdapter.kt`, `activity_main.xml` |
 | 2026-05-04 | **Settings**: Added "Show in bits" and "Data precision" controls; added Reset Data functionality. | `SettingsActivity.kt`, `SettingsManager.kt` |
 | 2026-05-04 | **Settings**: Added Notification Priority control (Normal vs High). | `SettingsActivity.kt`, `SpeedMeterService.kt` |
 

@@ -46,8 +46,11 @@ class HistoryAdapter(
             val date = inputFormat.parse(usage.date)
             binding.tvDate.text = date?.let { outputFormat.format(it) } ?: usage.date
             
-            val total = usage.totalWifi + usage.totalMobile
-            binding.tvTotalUsage.text = "Total: ${trafficProvider.formatBytes(total, precision)}"
+            val mobile = trafficProvider.formatBytes(usage.totalMobile, precision)
+            val wifi = trafficProvider.formatBytes(usage.totalWifi, precision)
+            val total = trafficProvider.formatBytes(usage.totalWifi + usage.totalMobile, precision)
+            
+            binding.tvTotalUsage.text = "Mobile: $mobile | WiFi: $wifi | Total: $total"
             
         }
     }
