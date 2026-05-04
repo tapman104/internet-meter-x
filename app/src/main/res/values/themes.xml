@@ -8,4 +8,10 @@
         <item name="colorOnSurface">@color/on_surface</item>
         <item name="colorOnSurfaceVariant">@color/on_surface_variant</item>
     </style>
+
+    <style name="Theme.InternetMeterX.Settings" parent="Theme.InternetSpeedMeterLite">
+        <item name="android:windowBackground">@color/settings_bg</item>
+        <item name="android:statusBarColor">@color/settings_bg</item>
+        <item name="android:navigationBarColor">@color/settings_bg</item>
+    </style>
 </resources>

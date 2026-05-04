@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.abs
 
 class SpeedMeterService : Service() {
 
@@ -29,6 +31,7 @@ class SpeedMeterService : Service() {
     private lateinit var trafficProvider: TrafficStatsProvider
     private lateinit var iconGenerator: NotificationIconGenerator
     private lateinit var powerManager: PowerManager
+    private lateinit var settingsManager: com.internetspeed.meterlite.core.util.SettingsManager
     
     private var todayWifi: Long = 0
     private var todayMobile: Long = 0
@@ -41,10 +44,18 @@ class SpeedMeterService : Service() {
     private var pendingMobileTx: Long = 0
     
     private var lastDbUpdateTime: Long = 0
-    private val DB_UPDATE_THRESHOLD = 5000L 
+    private val DB_UPDATE_THRESHOLD = 10000L // Increased for battery efficiency
+
+    private val prefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
+        // Trigger a notification update immediately when settings change
+        updateNotification(lastDisplayedDown, lastDisplayedUp)
+    }
 
     private var pollingJob: Job? = null
     private var usageObservationJob: Job? = null
+
+    // Battery: track consecutive ticks with zero bytes to relax polling when idle.
+    private var idleTrafficCount = 0
 
     private var lastDisplayedDown: Long = -1
     private var lastDisplayedUp: Long = -1
@@ -57,12 +68,21 @@ class SpeedMeterService : Service() {
         super.onCreate()
         
         currentDay = dateFormat.format(Date())
+        settingsManager = com.internetspeed.meterlite.core.util.SettingsManager(this)
         trafficProvider = TrafficStatsProvider()
         iconGenerator = NotificationIconGenerator(this)
         powerManager = getSystemService(POWER_SERVICE) as PowerManager
 
         val initialIcon = iconGenerator.createSpeedIcon(0, 0)
-        startForeground(NOTIFICATION_ID, createNotification("Initializing...", "WiFi: 0 B  •  Mobile: 0 B", "Internet Meter X running", initialIcon))
+        val initialNotif = createNotification("Initializing...", "WiFi: 0 B  •  Mobile: 0 B", "Internet Meter X running", initialIcon)
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            startForeground(NOTIFICATION_ID, initialNotif, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        } else {
+            startForeground(NOTIFICATION_ID, initialNotif)
+        }
+        
+        getSharedPreferences("settings", MODE_PRIVATE).registerOnSharedPreferenceChangeListener(prefListener)
         
         observeTodayUsage()
         startPolling()
@@ -98,7 +118,6 @@ class SpeedMeterService : Service() {
 
                 _speedFlow.value = Speed(currentDown, currentUp)
 
-                // Accurate separation using specific mobile counters
                 val mRx = snapshot.mobileRx
                 val mTx = snapshot.mobileTx
                 val wRx = maxOf(0L, snapshot.diffRx - mRx)
@@ -114,6 +133,10 @@ class SpeedMeterService : Service() {
 
                 updateLiveUsageFlow()
                 
+                // Track idle traffic ticks for adaptive polling.
+                val diffTotal = snapshot.diffRx + snapshot.diffTx
+                if (diffTotal == 0L) idleTrafficCount++ else idleTrafficCount = 0
+
                 if (powerManager.isInteractive) {
                     updateNotificationIfNeeded(currentDown, currentUp)
                 }
@@ -124,8 +147,14 @@ class SpeedMeterService : Service() {
                     lastDbUpdateTime = currentTime
                 }
 
-                // Adaptive Polling: 1s when active, 5s when screen off to save battery
-                val nextDelay = if (powerManager.isInteractive) 1000L else 5000L
+                val nextDelay = when {
+                    // Doze mode: OS already throttles wakeups; no point polling faster.
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && powerManager.isDeviceIdleMode -> 30_000L
+                    !powerManager.isInteractive -> 10_000L
+                    // Screen on but no traffic for 5+ consecutive ticks → relax to 2 s.
+                    idleTrafficCount >= 5 -> 2_000L
+                    else -> 1_000L
+                }
                 delay(nextDelay)
             }
         }
@@ -179,11 +208,15 @@ class SpeedMeterService : Service() {
     }
 
     private fun updateNotificationIfNeeded(speedDown: Long, speedUp: Long) {
-        val speedChanged = speedDown != lastDisplayedDown || speedUp != lastDisplayedUp
-        val usageChanged = (todayWifi / 1024 != lastDisplayedWifi / 1024) || 
-                          (todayMobile / 1024 != lastDisplayedMobile / 1024)
+        // Battery Optimization: Only update notification if change is significant
+        val isSpeedSignificant = isSignificantChange(speedDown, lastDisplayedDown) || 
+                                 isSignificantChange(speedUp, lastDisplayedUp)
+        
+        // Usage updates only if it crosses a 10KB threshold to avoid spamming system server
+        val usageChanged = abs(todayWifi - lastDisplayedWifi) > 10240 || 
+                          abs(todayMobile - lastDisplayedMobile) > 10240
 
-        if (speedChanged || usageChanged) {
+        if (isSpeedSignificant || usageChanged) {
             updateNotification(speedDown, speedUp)
             lastDisplayedDown = speedDown
             lastDisplayedUp = speedUp
@@ -192,17 +225,31 @@ class SpeedMeterService : Service() {
         }
     }
 
-    private fun updateNotification(speedDown: Long, speedUp: Long) {
-        val downStr = trafficProvider.formatSpeed(speedDown)
-        val upStr = trafficProvider.formatSpeed(speedUp)
-        val wifiStr = trafficProvider.formatBytes(todayWifi)
-        val mobileStr = trafficProvider.formatBytes(todayMobile)
-        val speedIcon = iconGenerator.createSpeedIcon(speedDown, speedUp)
+    /**
+     * Determines if a speed change is worth updating the UI for.
+     * Logic: Change > 10% OR crossing a 1KB boundary OR going to/from zero.
+     */
+    private fun isSignificantChange(current: Long, last: Long): Boolean {
+        if (current == last) return false
+        if ((current == 0L) != (last == 0L)) return true
+        if (abs(current - last) < 512) return false // Ignore sub-0.5KB fluctuations
+        
+        val percentChange = if (last > 0) abs(current - last).toDouble() / last else 1.0
+        return percentChange > 0.1 || abs(current - last) > 2048
+    }
 
-        // Title shown in notification drawer; ticker shown briefly in status bar
+    private fun updateNotification(speedDown: Long, speedUp: Long) {
+        val showInBits = settingsManager.showInBits
+        val precision = if (settingsManager.dataUnitPrecision == "1 decimal") 1 else 2
+        
+        val downStr = trafficProvider.formatSpeed(speedDown, showInBits, precision)
+        val upStr = trafficProvider.formatSpeed(speedUp, showInBits, precision)
+        val wifiStr = trafficProvider.formatBytes(todayWifi, precision)
+        val mobileStr = trafficProvider.formatBytes(todayMobile, precision)
+        val speedIcon = iconGenerator.createSpeedIcon(speedDown, speedUp, showInBits)
+
         val title = "↓ $downStr   ↑ $upStr"
         val content = "WiFi: $wifiStr  •  Mobile: $mobileStr"
-        // Ticker text causes Android to flash the speed text in the status bar next to the clock
         val ticker = "↓ $downStr  ↑ $upStr"
 
         val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
@@ -216,15 +263,21 @@ class SpeedMeterService : Service() {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
+        val priority = if (settingsManager.notificationPriority == 1) {
+            NotificationCompat.PRIORITY_MAX
+        } else {
+            NotificationCompat.PRIORITY_LOW
+        }
+
         return NotificationCompat.Builder(this, SpeedMeterApp.CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(content)
-            .setTicker(ticker)          // Shows speed text in the status bar area on update
+            .setTicker(ticker)
             .setSmallIcon(speedIcon)
             .setOngoing(true)
             .setSilent(true)
             .setContentIntent(pendingIntent)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setPriority(priority)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build()
     }
@@ -245,6 +298,7 @@ class SpeedMeterService : Service() {
             if (mRx > 0 || mTx > 0) app.usageRepository.updateUsage(mRx, mTx, isWifi = false, date = date)
         }
         
+        getSharedPreferences("settings", MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(prefListener)
         serviceScope.cancel()
         super.onDestroy()
         _speedFlow.value = Speed(0, 0)

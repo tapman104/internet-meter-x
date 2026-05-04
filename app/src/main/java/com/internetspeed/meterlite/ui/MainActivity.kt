@@ -1,6 +1,7 @@
 package com.internetspeed.meterlite.ui
 
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
@@ -20,6 +21,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val trafficProvider = TrafficStatsProvider()
     private lateinit var powerManager: android.os.PowerManager
+    private lateinit var settingsManager: com.internetspeed.meterlite.core.util.SettingsManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,13 +29,32 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         powerManager = getSystemService(POWER_SERVICE) as android.os.PowerManager
+        settingsManager = com.internetspeed.meterlite.core.util.SettingsManager(this)
 
+        displayVersion()
         checkPermissions()
         requestBatteryOptimizationExemption()
         observeUsage()
-        observeLiveSpeed()
         
+        binding.btnSettings.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
         startMeterService()
+    }
+
+    private fun displayVersion() {
+        try {
+            val pInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                packageManager.getPackageInfo(packageName, PackageManager.PackageInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                packageManager.getPackageInfo(packageName, 0)
+            }
+            binding.tvVersion.text = "v${pInfo.versionName}"
+        } catch (e: PackageManager.NameNotFoundException) {
+            binding.tvVersion.text = ""
+        }
     }
 
     private fun requestBatteryOptimizationExemption() {
@@ -71,9 +92,10 @@ class MainActivity : AppCompatActivity() {
                     liveUsage ?: dbUsage?.let { SpeedMeterService.LiveUsage(it.totalWifi, it.totalMobile) }
                 }.collectLatest { usage ->
                     if (usage != null) {
+                        val precision = if (settingsManager.dataUnitPrecision == "1 decimal") 1 else 2
                         val total = usage.wifi + usage.mobile
-                        binding.tvTodayTotal.text = trafficProvider.formatBytes(total)
-                        binding.tvTodayBreakdown.text = "WiFi: ${trafficProvider.formatBytes(usage.wifi)} | Mobile: ${trafficProvider.formatBytes(usage.mobile)}"
+                        binding.tvTodayTotal.text = trafficProvider.formatBytes(total, precision)
+                        binding.tvTodayBreakdown.text = "WiFi: ${trafficProvider.formatBytes(usage.wifi, precision)} | Mobile: ${trafficProvider.formatBytes(usage.mobile, precision)}"
                     }
                 }
             }
@@ -82,21 +104,11 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 repository.getYesterdayUsageFlow().collectLatest { usage ->
+                    val precision = if (settingsManager.dataUnitPrecision == "1 decimal") 1 else 2
                     val wifi = usage?.totalWifi ?: 0L
                     val mobile = usage?.totalMobile ?: 0L
-                    binding.tvYesterdayTotal.text = trafficProvider.formatBytes(wifi + mobile)
-                    binding.tvYesterdayBreakdown.text = "WiFi: ${trafficProvider.formatBytes(wifi)} | Mobile: ${trafficProvider.formatBytes(mobile)}"
-                }
-            }
-        }
-    }
-
-    private fun observeLiveSpeed() {
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                SpeedMeterService.speedFlow.collectLatest { speed ->
-                    binding.tvDownSpeed.text = "↓ ${trafficProvider.formatSpeed(speed.down)}"
-                    binding.tvUpSpeed.text = "↑ ${trafficProvider.formatSpeed(speed.up)}"
+                    binding.tvYesterdayTotal.text = trafficProvider.formatBytes(wifi + mobile, precision)
+                    binding.tvYesterdayBreakdown.text = "WiFi: ${trafficProvider.formatBytes(wifi, precision)} | Mobile: ${trafficProvider.formatBytes(mobile, precision)}"
                 }
             }
         }

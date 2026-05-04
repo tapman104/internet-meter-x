@@ -49,4 +49,8 @@ class UsageRepository(private val usageDao: UsageDao) {
     }
 
     fun getLast30DaysUsage(): Flow<List<DailyUsage>> = usageDao.getLast30DaysUsage()
+
+    suspend fun clearAllData() {
+        usageDao.clearAll()
+    }
 }

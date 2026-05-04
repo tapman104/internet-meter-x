@@ -1,0 +1,41 @@
+package com.internetspeed.meterlite.core.util
+
+import android.content.Context
+import android.content.SharedPreferences
+
+class SettingsManager(context: Context) {
+    private val prefs: SharedPreferences = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+
+    companion object {
+        const val KEY_SHOW_IN_BITS = "show_in_bits"
+        const val KEY_START_ON_BOOT = "start_on_boot"
+        const val KEY_NOTIF_PRIORITY = "notif_priority"
+        const val KEY_DATA_PRECISION = "data_precision"
+        const val KEY_BG_ACTIVITY = "bg_activity"
+        const val KEY_USAGE_ALERT = "usage_alert"
+    }
+
+    var showInBits: Boolean
+        get() = prefs.getBoolean(KEY_SHOW_IN_BITS, false)
+        set(value) = prefs.edit().putBoolean(KEY_SHOW_IN_BITS, value).apply()
+
+    var startOnBoot: Boolean
+        get() = prefs.getBoolean(KEY_START_ON_BOOT, true)
+        set(value) = prefs.edit().putBoolean(KEY_START_ON_BOOT, value).apply()
+
+    var notificationPriority: Int
+        get() = prefs.getInt(KEY_NOTIF_PRIORITY, 1) // 0: Low, 1: High
+        set(value) = prefs.edit().putInt(KEY_NOTIF_PRIORITY, value).apply()
+
+    var dataUnitPrecision: String
+        get() = prefs.getString(KEY_DATA_PRECISION, "2 decimal") ?: "2 decimal"
+        set(value) = prefs.edit().putString(KEY_DATA_PRECISION, value).apply()
+
+    var backgroundActivity: Boolean
+        get() = prefs.getBoolean(KEY_BG_ACTIVITY, true)
+        set(value) = prefs.edit().putBoolean(KEY_BG_ACTIVITY, value).apply()
+
+    var dailyUsageAlert: String
+        get() = prefs.getString(KEY_USAGE_ALERT, "Off") ?: "Off"
+        set(value) = prefs.edit().putString(KEY_USAGE_ALERT, value).apply()
+}

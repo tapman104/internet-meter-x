@@ -24,4 +24,7 @@ interface UsageDao {
 
     @Query("SELECT * FROM daily_usage ORDER BY date DESC LIMIT 30")
     fun getLast30DaysUsage(): Flow<List<DailyUsage>>
+
+    @Query("DELETE FROM daily_usage")
+    suspend fun clearAll()
 }

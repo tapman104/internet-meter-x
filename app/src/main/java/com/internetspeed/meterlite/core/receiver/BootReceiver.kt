@@ -11,12 +11,14 @@ class BootReceiver : BroadcastReceiver() {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED ||
             intent.action == "android.intent.action.QUICKBOOT_POWERON") {
             
-            // Fully automatic: Start service on boot without checking preferences
-            val serviceIntent = Intent(context, SpeedMeterService::class.java)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(serviceIntent)
-            } else {
-                context.startService(serviceIntent)
+            val settingsManager = com.internetspeed.meterlite.core.util.SettingsManager(context)
+            if (settingsManager.startOnBoot) {
+                val serviceIntent = Intent(context, SpeedMeterService::class.java)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(serviceIntent)
+                } else {
+                    context.startService(serviceIntent)
+                }
             }
         }
     }
