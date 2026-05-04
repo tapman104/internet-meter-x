@@ -132,31 +132,37 @@ class TrafficStatsProvider {
 
         if (b < 1000) return "$b $unit"
         
-        val fmt = "%.${precision}f"
         val kb = b / 1024.0
-        if (kb < 9.95) return String.format(Locale.ENGLISH, "$fmt K $unit", kb)
-        if (kb < 999.5) return String.format(Locale.ENGLISH, "%.0f K $unit", kb)
+        if (kb < 9.95) return formatDecimal(kb, precision) + " K $unit"
+        if (kb < 999.5) return Math.round(kb).toString() + " K $unit"
         
         val mb = kb / 1024.0
-        if (mb < 9.95) return String.format(Locale.ENGLISH, "$fmt M $unit", mb)
-        if (mb < 999.5) return String.format(Locale.ENGLISH, "%.0f M $unit", mb)
+        if (mb < 9.95) return formatDecimal(mb, precision) + " M $unit"
+        if (mb < 999.5) return Math.round(mb).toString() + " M $unit"
         
         val gb = mb / 1024.0
-        return String.format(Locale.ENGLISH, "$fmt G $unit", gb)
+        return formatDecimal(gb, precision) + " G $unit"
     }
 
     fun formatBytes(bytes: Long, precision: Int = 1): String {
         val b = if (bytes < 0) 0L else bytes
         if (b < 1024) return "$b B"
         
-        val fmt = "%.${precision}f"
         val kb = b / 1024.0
-        if (kb < 1023.95) return String.format(Locale.ENGLISH, "$fmt KB", kb)
+        if (kb < 1023.95) return formatDecimal(kb, precision) + " KB"
         val mb = kb / 1024.0
-        if (mb < 1023.95) return String.format(Locale.ENGLISH, "$fmt MB", mb)
+        if (mb < 1023.95) return formatDecimal(mb, precision) + " MB"
         val gb = mb / 1024.0
-        if (gb < 1023.95) return String.format(Locale.ENGLISH, "$fmt GB", gb)
+        if (gb < 1023.95) return formatDecimal(gb, precision) + " GB"
         val tb = gb / 1024.0
-        return String.format(Locale.ENGLISH, "$fmt TB", tb)
+        return formatDecimal(tb, precision) + " TB"
+    }
+
+    private fun formatDecimal(value: Double, precision: Int): String {
+        return if (precision == 1) {
+            String.format(Locale.ENGLISH, "%.1f", value)
+        } else {
+            String.format(Locale.ENGLISH, "%.2f", value)
+        }
     }
 }
