@@ -27,7 +27,7 @@ import kotlin.math.abs
 
 class SpeedMeterService : Service() {
 
-    private val serviceScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
+    private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
     private lateinit var trafficProvider: TrafficStatsProvider
     private lateinit var iconGenerator: NotificationIconGenerator
     private lateinit var powerManager: PowerManager
@@ -227,15 +227,26 @@ class SpeedMeterService : Service() {
     }
 
     private fun updateNotificationIfNeeded(speedDown: Long, speedUp: Long) {
-        // Battery Optimization: Only update notification if change is significant
+        val showInBits = settingsManager.showInBits
+        val precision = if (settingsManager.dataUnitPrecision == "1 decimal") 1 else 2
+        
+        // Battery Optimization: Only update notification if speed change is significant
         val isSpeedSignificant = isSignificantChange(speedDown, lastDisplayedDown) || 
                                  isSignificantChange(speedUp, lastDisplayedUp)
         
-        // Usage updates only if it crosses a 10KB threshold to avoid spamming system server
-        val usageChanged = abs(todayWifi - lastDisplayedWifi) > 10240 || 
-                          abs(todayMobile - lastDisplayedMobile) > 10240
+        // Usage updates: Only update if the displayed string would change (e.g. 1.2 MB -> 1.3 MB)
+        // This is MUCH more battery efficient than a fixed byte threshold.
+        val currentWifiStr = trafficProvider.formatBytes(todayWifi, precision)
+        val currentMobileStr = trafficProvider.formatBytes(todayMobile, precision)
+        
+        val lastWifiStr = trafficProvider.formatBytes(lastDisplayedWifi, precision)
+        val lastMobileStr = trafficProvider.formatBytes(lastDisplayedMobile, precision)
+        
+        val usageStrChanged = currentWifiStr != lastWifiStr || currentMobileStr != lastMobileStr
 
-        if (isSpeedSignificant || usageChanged) {
+        // Logic: Always update if speed is significant.
+        // If speed is not significant (e.g. jittering around 0), only update if usage changed visually.
+        if (isSpeedSignificant || usageStrChanged) {
             updateNotification(speedDown, speedUp)
             lastDisplayedDown = speedDown
             lastDisplayedUp = speedUp
