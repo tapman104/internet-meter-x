@@ -17,6 +17,9 @@ This file documents how Gemini (Google DeepMind) was used during development of 
 | 2026-05-04 | **UI/UX**: Integrated History into Home screen with dynamic "View More" and simplified breakdown (Mobile | WiFi | Total). | `MainActivity.kt`, `HistoryAdapter.kt`, `activity_main.xml` |
 | 2026-05-04 | **Settings**: Added "Show in bits" and "Data precision" controls; added Reset Data functionality. | `SettingsActivity.kt`, `SettingsManager.kt` |
 | 2026-05-04 | **Settings**: Added Notification Priority control (Normal vs High). | `SettingsActivity.kt`, `SpeedMeterService.kt` |
+| 2026-05-04 | **Battery**: Visual-string based throttling in `SpeedMeterService` to eliminate redundant system notification updates. | `SpeedMeterService.kt` |
+| 2026-05-04 | **Battery**: Moved core polling loop to `Dispatchers.Default` for better background efficiency. | `SpeedMeterService.kt` |
+| 2026-05-04 | **Optimization**: Optimized speed and data formatting in `TrafficStatsProvider` to reduce memory allocations. | `TrafficStatsProvider.kt` |
 
 ---
 
@@ -24,8 +27,9 @@ This file documents how Gemini (Google DeepMind) was used during development of 
 
 - **Adaptive EMA**: Reacts instantly to changes > 50% but uses a 0.8s time constant for steady traffic.
 - **Resource Reuse**: Pre-allocated bitmaps/canvases and cached icons are used to minimize GC pressure and IPC overhead.
-- **Lazy UI**: Notifications are only updated if the formatted string or unit has changed visually.
+- **Lazy UI**: Notifications are only updated if the displayed formatted string has changed visually or speed is significant, minimizing IPC overhead.
 - **Doze Friendly**: Respects system idle modes by drastically reducing polling frequency when the device is not being used.
+- **Off-Main Processing**: Core traffic monitoring and formatting are handled on `Dispatchers.Default` to keep the Main thread clean.
 
 ---
 
