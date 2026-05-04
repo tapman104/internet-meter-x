@@ -64,59 +64,10 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- Display Section -->
-            <TextView
-                style="@style/SettingsSectionLabel"
-                android:text="DISPLAY" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="@drawable/bg_settings_card"
-                android:orientation="vertical">
-
-                <!-- Show speed in bits -->
-                <include
-                    android:id="@+id/row_bits"
-                    layout="@layout/layout_settings_row_toggle" />
-
-                <View style="@style/SettingsDivider" />
-
-                <!-- Data unit precision -->
-                <include
-                    android:id="@+id/row_precision"
-                    layout="@layout/layout_settings_row_value" />
-
-            </LinearLayout>
-
-            <!-- Service Section -->
-            <TextView
-                style="@style/SettingsSectionLabel"
-                android:layout_marginTop="24dp"
-                android:text="SERVICE" />
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="@drawable/bg_settings_card"
-                android:orientation="vertical">
-
-                <include
-                    android:id="@+id/row_boot"
-                    layout="@layout/layout_settings_row_toggle" />
-
-                <View style="@style/SettingsDivider" />
-
-                <include
-                    android:id="@+id/row_background"
-                    layout="@layout/layout_settings_row_toggle" />
-
-            </LinearLayout>
-
             <!-- Notifications Section -->
             <TextView
                 style="@style/SettingsSectionLabel"
-                android:layout_marginTop="24dp"
+                android:layout_marginTop="8dp"
                 android:text="NOTIFICATIONS" />
 
             <LinearLayout
@@ -127,12 +78,36 @@
 
                 <include
                     android:id="@+id/row_priority"
-                    layout="@layout/layout_settings_row_toggle" />
+                    layout="@layout/layout_settings_row_value" />
 
                 <View style="@style/SettingsDivider" />
 
                 <include
                     android:id="@+id/row_alert"
+                    layout="@layout/layout_settings_row_value" />
+
+            </LinearLayout>
+
+            <!-- General Section -->
+            <TextView
+                style="@style/SettingsSectionLabel"
+                android:layout_marginTop="24dp"
+                android:text="GENERAL" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_settings_card"
+                android:orientation="vertical">
+
+                <include
+                    android:id="@+id/row_bits"
+                    layout="@layout/layout_settings_row_toggle" />
+
+                <View style="@style/SettingsDivider" />
+
+                <include
+                    android:id="@+id/row_precision"
                     layout="@layout/layout_settings_row_value" />
 
             </LinearLayout>
@@ -149,14 +124,56 @@
                 android:background="@drawable/bg_settings_card"
                 android:orientation="vertical">
 
-                <!-- Version -->
                 <include
                     android:id="@+id/row_version"
                     layout="@layout/layout_settings_row_value" />
 
                 <View style="@style/SettingsDivider" />
 
-                <!-- Reset -->
+                <include
+                    android:id="@+id/row_changelog"
+                    layout="@layout/layout_settings_row_value" />
+
+                <View style="@style/SettingsDivider" />
+
+                <include
+                    android:id="@+id/row_github"
+                    layout="@layout/layout_settings_row_value" />
+
+                <!-- Support Subsection -->
+                <TextView
+                    style="@style/SettingsSectionLabel"
+                    android:layout_marginTop="16dp"
+                    android:layout_marginStart="16dp"
+                    android:layout_marginBottom="8dp"
+                    android:text="SUPPORT"
+                    android:textSize="11sp"
+                    android:textColor="@color/on_surface_variant" />
+
+                <include
+                    android:id="@+id/row_coffee"
+                    layout="@layout/layout_settings_row_value" />
+
+                <View style="@style/SettingsDivider" />
+
+                <include
+                    android:id="@+id/row_paypal"
+                    layout="@layout/layout_settings_row_value" />
+
+            </LinearLayout>
+
+            <!-- Maintenance Section -->
+            <TextView
+                style="@style/SettingsSectionLabel"
+                android:layout_marginTop="24dp"
+                android:text="MAINTENANCE" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_settings_card"
+                android:orientation="vertical">
+
                 <include
                     android:id="@+id/row_reset"
                     layout="@layout/layout_settings_row_value" />
@@ -170,4 +187,4 @@
         </LinearLayout>
     </ScrollView>
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

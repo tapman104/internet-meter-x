@@ -26,6 +26,8 @@
     <color name="settings_icon_purple_bg">#339C27B0</color>
     <color name="settings_icon_amber">#FFC107</color>
     <color name="settings_icon_amber_bg">#33FFC107</color>
+    <color name="settings_icon_orange">#FF9800</color>
+    <color name="settings_icon_orange_bg">#33FF9800</color>
     <color name="settings_red">#FF5252</color>
     <color name="settings_red_bg">#33FF5252</color>
 </resources>

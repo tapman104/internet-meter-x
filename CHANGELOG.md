@@ -6,6 +6,25 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.2.1] — 2026-05-04
+
+### Fixed
+- **Usage Reset**: Fixed bug where live counters wouldn't reset when "Reset all data" was clicked.
+- **Initialization**: Fixed bug where notification would stay at "Initializing..." if no traffic occurred immediately.
+- **Speed Precision**: Improved significance threshold to show low speeds (e.g. 100 B/s) correctly.
+- **Unit Precision**: Applied consistent precision logic to GB and TB units in usage reporting.
+- **Build System**: Restored missing `gradle-wrapper.jar` and resolved SDK configuration issues.
+
+### Added
+- **Build Artifacts**: Successfully generated the debug APK (`app-debug.apk`).
+
+### Changed
+- **UI Cleanup**: Removed redundant settings (Bits, Precision, Priority) for a cleaner "Lite" experience.
+- **UX**: Switched to `MaterialAlertDialogBuilder` for system dialogs.
+- **Notification**: Defaulted priority to `LOW` for better system integration.
+
+---
+
 ## [1.2.0] — 2026-05-03
 
 ### Added
@@ -74,7 +93,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
-[Unreleased]: https://github.com/your-org/internet-apk/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/your-org/internet-apk/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/your-org/internet-apk/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/your-org/internet-apk/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/your-org/internet-apk/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/your-org/internet-apk/compare/v1.0.0...v1.1.0

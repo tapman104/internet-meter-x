@@ -4,13 +4,17 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.view.View
+import android.view.ViewTreeObserver
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.internetspeed.meterlite.SpeedMeterApp
 import com.internetspeed.meterlite.core.service.SpeedMeterService
 import com.internetspeed.meterlite.core.util.TrafficStatsProvider
+import com.internetspeed.meterlite.data.entity.DailyUsage
 import com.internetspeed.meterlite.databinding.ActivityMainBinding
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -22,6 +26,9 @@ class MainActivity : AppCompatActivity() {
     private val trafficProvider = TrafficStatsProvider()
     private lateinit var powerManager: android.os.PowerManager
     private lateinit var settingsManager: com.internetspeed.meterlite.core.util.SettingsManager
+    private lateinit var historyAdapter: HistoryAdapter
+    private var fullHistory: List<DailyUsage> = emptyList()
+    private var isExpanded = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,16 +38,80 @@ class MainActivity : AppCompatActivity() {
         powerManager = getSystemService(POWER_SERVICE) as android.os.PowerManager
         settingsManager = com.internetspeed.meterlite.core.util.SettingsManager(this)
 
+        setupHistoryList()
         displayVersion()
         checkPermissions()
         requestBatteryOptimizationExemption()
         observeUsage()
+        observeHistory()
         
         binding.btnSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
 
+        binding.btnViewMore.setOnClickListener {
+            isExpanded = true
+            updateHistoryDisplay()
+            binding.btnViewMore.visibility = View.GONE
+        }
+
         startMeterService()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Refresh UI in case settings changed
+        val precision = if (settingsManager.dataUnitPrecision == "1 decimal") 1 else 2
+        historyAdapter.setPrecision(precision)
+        updateHistoryDisplay()
+        // Flows in observeUsage/observeHistory will naturally pick up data changes,
+        // and precision is checked inside their collectors.
+    }
+
+    private fun setupHistoryList() {
+        val precision = if (settingsManager.dataUnitPrecision == "1 decimal") 1 else 2
+        historyAdapter = HistoryAdapter(trafficProvider, precision)
+        binding.rvHistory.layoutManager = LinearLayoutManager(this)
+        binding.rvHistory.adapter = historyAdapter
+        binding.rvHistory.isNestedScrollingEnabled = false
+    }
+
+    private fun observeHistory() {
+        val repository = (application as SpeedMeterApp).usageRepository
+        
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                repository.getLast30DaysUsage().collectLatest { history ->
+                    fullHistory = history
+                    updateHistoryDisplay()
+                }
+            }
+        }
+    }
+
+    private fun updateHistoryDisplay() {
+        if (isExpanded || fullHistory.size <= 7) {
+            historyAdapter.submitList(fullHistory)
+            binding.btnViewMore.visibility = View.GONE
+        } else {
+            historyAdapter.submitList(fullHistory.take(7))
+            binding.btnViewMore.visibility = View.VISIBLE
+        }
+        checkContentHeight()
+    }
+
+    private fun checkContentHeight() {
+        // Delay slightly to allow layout to settle
+        binding.root.post {
+            val contentHeight = binding.contentLayout.height
+            val scrollViewHeight = binding.scrollView.height
+            
+            if (contentHeight > scrollViewHeight && !isExpanded && fullHistory.size > 7) {
+                binding.btnViewMore.visibility = View.VISIBLE
+            } else if (fullHistory.size <= 7) {
+                binding.btnViewMore.visibility = View.GONE
+            }
+        }
     }
 
     private fun displayVersion() {
@@ -83,12 +154,10 @@ class MainActivity : AppCompatActivity() {
         
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                // Combine real-time service data with DB fallback
                 combine(
                     repository.getTodayUsageFlow(),
                     SpeedMeterService.usageFlow
                 ) { dbUsage, liveUsage ->
-                    // Prefer live service data, fallback to DB if service is not running
                     liveUsage ?: dbUsage?.let { SpeedMeterService.LiveUsage(it.totalWifi, it.totalMobile) }
                 }.collectLatest { usage ->
                     if (usage != null) {

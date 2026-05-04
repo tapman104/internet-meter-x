@@ -8,6 +8,7 @@ This file documents how GitHub Copilot (Claude) was used during development of *
 
 | Session | Change | File(s) |
 |---------|--------|---------|
+| 2026-05-04 | Restored missing `gradle-wrapper.jar`, configured SDK in `local.properties`, and built debug APK | `gradle/wrapper/…`, `local.properties`, `app/build/…` |
 | 2026-05-02 | Built debug APK via `.\gradlew.bat assembleDebug` | `app/build/outputs/apk/debug/app-debug.apk` |
 | 2026-05-02 | Refined UI: Added app title, removed "Live Speed" section, fixed card constraints | `ui/MainActivity.kt`, `res/layout/activity_main.xml` |
 | 2026-05-02 | Implemented Settings Modal (Bottom Sheet) with Mbps/MBs, Priority, and Boot toggles | `app/src/main/res/layout/settings_bottom_sheet.xml`, `ui/SettingsBottomSheetDialogFragment.kt` |

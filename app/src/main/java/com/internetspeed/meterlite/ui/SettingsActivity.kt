@@ -1,7 +1,9 @@
 package com.internetspeed.meterlite.ui
 
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -37,20 +39,24 @@ class SettingsActivity : AppCompatActivity() {
             onBackPressedDispatcher.onBackPressed()
         }
 
-        // Display Section
-        setupToggleRow(binding.rowBits.root, "Show speed in bits", "Display traffic in bits per second", R.drawable.ic_bits, getColor(R.color.settings_icon_blue_bg))
-        setupValueRow(binding.rowPrecision.root, "Data unit precision", "Decimal points for data units", R.drawable.ic_precision, getColor(R.color.settings_icon_green_bg))
-
-        // Service Section
-        setupToggleRow(binding.rowBoot.root, "Start on boot", "Automatically start service on boot", R.drawable.ic_boot, getColor(R.color.settings_icon_purple_bg))
-        setupToggleRow(binding.rowBackground.root, "Background activity", "Keep service running in background", R.drawable.ic_background, getColor(R.color.settings_icon_amber_bg))
-
         // Notifications Section
-        setupToggleRow(binding.rowPriority.root, "Notification priority", "Show speed on top of other notifications", R.drawable.ic_notifications, getColor(R.color.settings_icon_blue_bg))
+        setupValueRow(binding.rowPriority.root, "Notification priority", "Show speed at the top of drawer", R.drawable.ic_notifications, getColor(R.color.settings_icon_blue_bg))
         setupValueRow(binding.rowAlert.root, "Daily usage alert", "Notify when daily limit reached", R.drawable.ic_alert, getColor(R.color.settings_icon_blue_bg))
 
+        // General Section
+        setupToggleRow(binding.rowBits.root, "Show speed in bits", "Display Mbps instead of MB/s", R.drawable.ic_bits, getColor(R.color.settings_icon_purple_bg))
+        setupValueRow(binding.rowPrecision.root, "Data unit precision", "Number of decimal places", R.drawable.ic_precision, getColor(R.color.settings_icon_purple_bg))
+
         // About Section
-        setupValueRow(binding.rowVersion.root, "Version", "", R.drawable.ic_info, getColor(R.color.settings_icon_green_bg))
+        setupValueRow(binding.rowVersion.root, "Version", "App version information", R.drawable.ic_info, getColor(R.color.settings_icon_green_bg))
+        setupValueRow(binding.rowChangelog.root, "Changelog", "What\'s new in this version", R.drawable.ic_info, getColor(R.color.settings_icon_green_bg))
+        setupValueRow(binding.rowGithub.root, "GitHub Profile", "Follow the developer on GitHub", R.drawable.ic_info, getColor(R.color.settings_icon_green_bg))
+        
+        // Support Subsection
+        setupValueRow(binding.rowCoffee.root, "Buy Me a Coffee", "Support the project with a coffee", R.drawable.ic_info, getColor(R.color.settings_icon_orange_bg))
+        setupValueRow(binding.rowPaypal.root, "PayPal", "Donate via PayPal", R.drawable.ic_info, getColor(R.color.settings_icon_orange_bg))
+
+        // Maintenance Section
         setupValueRow(binding.rowReset.root, "Reset all data", "Clear all usage history and settings", R.drawable.ic_reset, getColor(R.color.settings_red_bg))
         
         // Custom styling for Reset
@@ -79,46 +85,14 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun bindSettings() {
-        // Bits
-        LayoutSettingsRowToggleBinding.bind(binding.rowBits.root).apply {
-            switchControl.isChecked = settingsManager.showInBits
-            switchControl.setOnCheckedChangeListener { _, isChecked ->
-                settingsManager.showInBits = isChecked
-            }
-        }
-
-        // Boot
-        LayoutSettingsRowToggleBinding.bind(binding.rowBoot.root).apply {
-            switchControl.isChecked = settingsManager.startOnBoot
-            switchControl.setOnCheckedChangeListener { _, isChecked ->
-                settingsManager.startOnBoot = isChecked
-            }
-        }
-
-        // Background
-        LayoutSettingsRowToggleBinding.bind(binding.rowBackground.root).apply {
-            switchControl.isChecked = settingsManager.backgroundActivity
-            switchControl.setOnCheckedChangeListener { _, isChecked ->
-                settingsManager.backgroundActivity = isChecked
-            }
-        }
-
         // Priority
-        LayoutSettingsRowToggleBinding.bind(binding.rowPriority.root).apply {
-            switchControl.isChecked = settingsManager.notificationPriority == 1
-            switchControl.setOnCheckedChangeListener { _, isChecked ->
-                settingsManager.notificationPriority = if (isChecked) 1 else 0
-            }
-        }
-
-        // Precision
-        LayoutSettingsRowValueBinding.bind(binding.rowPrecision.root).apply {
-            tvValue.text = settingsManager.dataUnitPrecision
+        LayoutSettingsRowValueBinding.bind(binding.rowPriority.root).apply {
+            tvValue.text = if (settingsManager.notificationPriority == 1) "High" else "Normal"
             root.setOnClickListener {
-                // In a real app, show a picker dialog. For now, we'll just toggle it.
-                val newValue = if (settingsManager.dataUnitPrecision == "2 decimal") "1 decimal" else "2 decimal"
-                settingsManager.dataUnitPrecision = newValue
-                tvValue.text = newValue
+                val newValue = if (settingsManager.notificationPriority == 1) 0 else 1
+                settingsManager.notificationPriority = newValue
+                tvValue.text = if (newValue == 1) "High" else "Normal"
+                Toast.makeText(this@SettingsActivity, "Restart app to apply priority change", Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -126,9 +100,44 @@ class SettingsActivity : AppCompatActivity() {
         LayoutSettingsRowValueBinding.bind(binding.rowAlert.root).apply {
             tvValue.text = settingsManager.dailyUsageAlert
             root.setOnClickListener {
-                val newValue = if (settingsManager.dailyUsageAlert == "Off") "1 GB" else "Off"
-                settingsManager.dailyUsageAlert = newValue
-                tvValue.text = newValue
+                val options = arrayOf("Off", "500 MB", "1 GB", "2 GB", "5 GB")
+                com.google.android.material.dialog.MaterialAlertDialogBuilder(this@SettingsActivity)
+                    .setTitle("Daily Usage Alert")
+                    .setItems(options) { _, which ->
+                        val newValue = options[which]
+                        settingsManager.dailyUsageAlert = newValue
+                        tvValue.text = newValue
+                    }
+                    .show()
+            }
+        }
+
+        // Bits
+        LayoutSettingsRowToggleBinding.bind(binding.rowBits.root).apply {
+            switchControl.isChecked = settingsManager.showInBits
+            root.setOnClickListener {
+                val newValue = !settingsManager.showInBits
+                settingsManager.showInBits = newValue
+                switchControl.isChecked = newValue
+            }
+            switchControl.setOnCheckedChangeListener { _, isChecked: Boolean ->
+                settingsManager.showInBits = isChecked
+            }
+        }
+
+        // Precision
+        LayoutSettingsRowValueBinding.bind(binding.rowPrecision.root).apply {
+            tvValue.text = settingsManager.dataUnitPrecision
+            root.setOnClickListener {
+                val options = arrayOf("1 decimal", "2 decimal")
+                com.google.android.material.dialog.MaterialAlertDialogBuilder(this@SettingsActivity)
+                    .setTitle("Data Unit Precision")
+                    .setItems(options) { _, which ->
+                        val newValue = options[which]
+                        settingsManager.dataUnitPrecision = newValue
+                        tvValue.text = newValue
+                    }
+                    .show()
             }
         }
 
@@ -147,9 +156,28 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
+        // Links
+        binding.rowChangelog.root.setOnClickListener {
+            // Internal or external link? User didn't specify, I'll just show a toast or a simple dialog for now
+            // Actually, usually a changelog is a file or a web link.
+            Toast.makeText(this, "Changelog coming soon", Toast.LENGTH_SHORT).show()
+        }
+
+        binding.rowGithub.root.setOnClickListener {
+            openUrl("https://github.com/tapman104")
+        }
+
+        binding.rowCoffee.root.setOnClickListener {
+            openUrl("https://buymeacoffee.com/tapman")
+        }
+
+        binding.rowPaypal.root.setOnClickListener {
+            openUrl("https://paypal.me/tapmanxce")
+        }
+
         // Reset
         binding.rowReset.root.setOnClickListener {
-            androidx.appcompat.app.AlertDialog.Builder(this)
+            com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
                 .setTitle("Reset all data?")
                 .setMessage("This will clear all usage history and reset settings to default. This cannot be undone.")
                 .setPositiveButton("Reset") { _, _ ->
@@ -159,7 +187,7 @@ class SettingsActivity : AppCompatActivity() {
                         // Reset settings
                         settingsManager.showInBits = false
                         settingsManager.startOnBoot = true
-                        settingsManager.notificationPriority = 1
+                        settingsManager.notificationPriority = 0
                         settingsManager.dataUnitPrecision = "2 decimal"
                         settingsManager.backgroundActivity = true
                         settingsManager.dailyUsageAlert = "Off"
@@ -174,4 +202,13 @@ class SettingsActivity : AppCompatActivity() {
                 .show()
         }
     }
-}
+
+    private fun openUrl(url: String) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(this, "Could not open link", Toast.LENGTH_SHORT).show()
+        }
+    }
+}

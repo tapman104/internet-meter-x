@@ -24,7 +24,7 @@ class SettingsManager(context: Context) {
         set(value) = prefs.edit().putBoolean(KEY_START_ON_BOOT, value).apply()
 
     var notificationPriority: Int
-        get() = prefs.getInt(KEY_NOTIF_PRIORITY, 1) // 0: Low, 1: High
+        get() = prefs.getInt(KEY_NOTIF_PRIORITY, 0) // 0: Low, 1: High
         set(value) = prefs.edit().putInt(KEY_NOTIF_PRIORITY, value).apply()
 
     var dataUnitPrecision: String

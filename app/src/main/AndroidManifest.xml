@@ -33,6 +33,7 @@
             android:parentActivityName=".ui.MainActivity"
             android:theme="@style/Theme.InternetMeterX.Settings" />
 
+
         <service
             android:name=".core.service.SpeedMeterService"
             android:enabled="true"

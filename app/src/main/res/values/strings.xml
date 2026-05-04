@@ -10,4 +10,7 @@
     <string name="settings_boot_desc">Automatically start service when device boots</string>
     <string name="settings_priority">Notification Priority</string>
     <string name="settings_priority_desc">Show at the top of notifications</string>
+    <string name="history_title">Usage History</string>
+    <string name="history_last_30_days">Last 30 Days</string>
+    <string name="no_data">No data available</string>
 </resources>

@@ -3,6 +3,7 @@ package com.internetspeed.meterlite.core.util
 import android.net.TrafficStats
 import android.os.SystemClock
 import java.util.Locale
+import kotlin.math.abs
 import kotlin.math.exp
 
 data class Speed(val down: Long, val up: Long)
@@ -33,8 +34,8 @@ class TrafficStatsProvider {
 
     /**
      * Calculates the current network speed with Adaptive EMA (Exponential Moving Average) smoothing.
-     * Smoothing helps reduce jitter caused by bursty network reports, while adaptivity 
-     * ensures responsiveness even when polling intervals change.
+     * Accuracy: Uses a variable smoothing factor that reacts instantly to large traffic 
+     * spikes while maintaining smooth transitions for steady or slow-changing traffic.
      */
     fun getSnapshot(): TrafficSnapshot {
         val currentTotalRx = TrafficStats.getTotalRxBytes()
@@ -46,7 +47,7 @@ class TrafficStatsProvider {
         val timeDiffMillis = currentTime - lastTime
         
         // Ensure a minimum interval to avoid extreme fluctuations
-        if (timeDiffMillis < 200) {
+        if (timeDiffMillis < 300) { // Slightly increased minimum window for more stable delta
             return TrafficSnapshot(
                 maxOf(0, lastSpeedDown), 
                 maxOf(0, lastSpeedUp), 
@@ -65,29 +66,43 @@ class TrafficStatsProvider {
         val instantDown = (totalRxDiff / timeDiffSec).toLong()
         val instantUp = (totalTxDiff / timeDiffSec).toLong()
 
-        // Adaptive EMA Smoothing
-        // Accuracy: tighter time-constant → faster tracking of real speed changes.
-        // τ = 0.8 s (was 1.2 s) keeps the display responsive while still smoothing jitter.
-        val timeConstant = 0.8
-        val alpha = (1.0 - exp(-timeDiffSec / timeConstant)).coerceIn(0.0, 1.0)
-        
-        // If speed is 0, we drop to 0 faster to feel more responsive when traffic stops
-        val adjustedAlpha = if (instantDown == 0L && instantUp == 0L) maxOf(alpha, 0.8) else alpha
+        // Accuracy: Adaptive EMA
+        // If the instant speed is significantly different from the last smoothed speed,
+        // we use a much higher alpha to catch the burst immediately.
+        fun getAdaptiveAlpha(instant: Long, last: Long): Double {
+            if (last <= 0) return 1.0 // Instant reaction from zero
+            
+            val diff = abs(instant - last)
+            val ratio = diff.toDouble() / last
+            
+            // Base time constant: 0.8s for steady traffic
+            var baseAlpha = 1.0 - exp(-timeDiffSec / 0.8)
+            
+            // If change > 50%, boost alpha up to 0.9 for instant reaction
+            return when {
+                ratio > 2.0 -> 0.9       // Huge burst: react almost instantly
+                ratio > 0.5 -> baseAlpha + (0.9 - baseAlpha) * ((ratio - 0.5) / 1.5)
+                instant == 0L -> 0.8     // Faster drop to zero
+                else -> baseAlpha
+            }.coerceIn(0.0, 1.0)
+        }
 
-        // Accuracy: hard-drop to 0 after 2 consecutive zero-traffic samples rather
-        // than waiting for the EMA to decay — eliminates phantom "ghost" speed.
+        val alphaDown = getAdaptiveAlpha(instantDown, lastSpeedDown)
+        val alphaUp = getAdaptiveAlpha(instantUp, lastSpeedUp)
+
+        // Accuracy: hard-drop to 0 after 2 consecutive zero-traffic samples
         if (instantDown == 0L && instantUp == 0L) consecutiveZeroCount++ else consecutiveZeroCount = 0
         val forceZero = consecutiveZeroCount >= 2
 
         val speedDown = when {
-            forceZero      -> 0L
+            forceZero -> 0L
             lastSpeedDown == -1L -> instantDown
-            else -> (instantDown * adjustedAlpha + lastSpeedDown * (1 - adjustedAlpha)).toLong()
+            else -> (instantDown * alphaDown + lastSpeedDown * (1 - alphaDown)).toLong()
         }
         val speedUp = when {
-            forceZero    -> 0L
+            forceZero -> 0L
             lastSpeedUp == -1L -> instantUp
-            else -> (instantUp * adjustedAlpha + lastSpeedUp * (1 - adjustedAlpha)).toLong()
+            else -> (instantUp * alphaUp + lastSpeedUp * (1 - alphaUp)).toLong()
         }
 
         lastTotalRx = currentTotalRx
@@ -119,15 +134,15 @@ class TrafficStatsProvider {
         
         val fmt = "%.${precision}f"
         val kb = b / 1024.0
-        if (kb < 9.95) return String.format(Locale.ENGLISH, "$fmt K$unit", kb)
-        if (kb < 999.5) return String.format(Locale.ENGLISH, "%.0f K$unit", kb)
+        if (kb < 9.95) return String.format(Locale.ENGLISH, "$fmt K $unit", kb)
+        if (kb < 999.5) return String.format(Locale.ENGLISH, "%.0f K $unit", kb)
         
         val mb = kb / 1024.0
-        if (mb < 9.95) return String.format(Locale.ENGLISH, "$fmt M$unit", mb)
-        if (mb < 999.5) return String.format(Locale.ENGLISH, "%.0f M$unit", mb)
+        if (mb < 9.95) return String.format(Locale.ENGLISH, "$fmt M $unit", mb)
+        if (mb < 999.5) return String.format(Locale.ENGLISH, "%.0f M $unit", mb)
         
         val gb = mb / 1024.0
-        return String.format(Locale.ENGLISH, "$fmt G$unit", gb)
+        return String.format(Locale.ENGLISH, "$fmt G $unit", gb)
     }
 
     fun formatBytes(bytes: Long, precision: Int = 1): String {
@@ -140,8 +155,8 @@ class TrafficStatsProvider {
         val mb = kb / 1024.0
         if (mb < 1023.95) return String.format(Locale.ENGLISH, "$fmt MB", mb)
         val gb = mb / 1024.0
-        if (gb < 1023.95) return String.format(Locale.ENGLISH, "%.2f GB", gb)
+        if (gb < 1023.95) return String.format(Locale.ENGLISH, "$fmt GB", gb)
         val tb = gb / 1024.0
-        return String.format(Locale.ENGLISH, "%.2f TB", tb)
+        return String.format(Locale.ENGLISH, "$fmt TB", tb)
     }
 }

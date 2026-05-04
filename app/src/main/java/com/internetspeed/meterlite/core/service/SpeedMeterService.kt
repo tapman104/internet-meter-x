@@ -62,6 +62,10 @@ class SpeedMeterService : Service() {
     private var lastDisplayedWifi: Long = -1
     private var lastDisplayedMobile: Long = -1
     
+    // Battery: Cache the last rendered icon and its label to skip expensive IPC/Drawing
+    private var lastIconLabel: String = ""
+    private var lastIcon: IconCompat? = null
+    
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 
     override fun onCreate() {
@@ -95,8 +99,22 @@ class SpeedMeterService : Service() {
         usageObservationJob = serviceScope.launch {
             repository.getTodayUsageFlow().collectLatest { usage ->
                 if (usage != null) {
-                    todayWifi = maxOf(todayWifi, usage.totalWifi)
-                    todayMobile = maxOf(todayMobile, usage.totalMobile)
+                    // If DB value is significantly lower than current, it means a reset occurred
+                    if (usage.totalWifi < todayWifi - 102400) { // 100KB buffer
+                        todayWifi = usage.totalWifi
+                    } else {
+                        todayWifi = maxOf(todayWifi, usage.totalWifi)
+                    }
+                    
+                    if (usage.totalMobile < todayMobile - 102400) {
+                        todayMobile = usage.totalMobile
+                    } else {
+                        todayMobile = maxOf(todayMobile, usage.totalMobile)
+                    }
+                } else {
+                    // Explicit reset: DB is empty
+                    todayWifi = 0
+                    todayMobile = 0
                 }
                 isSynced = true
                 updateLiveUsageFlow()
@@ -149,10 +167,11 @@ class SpeedMeterService : Service() {
 
                 val nextDelay = when {
                     // Doze mode: OS already throttles wakeups; no point polling faster.
-                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && powerManager.isDeviceIdleMode -> 30_000L
-                    !powerManager.isInteractive -> 10_000L
-                    // Screen on but no traffic for 5+ consecutive ticks → relax to 2 s.
-                    idleTrafficCount >= 5 -> 2_000L
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && powerManager.isDeviceIdleMode -> 60_000L // Relaxed from 30s to 60s
+                    !powerManager.isInteractive -> 15_000L // Relaxed from 10s to 15s
+                    // Screen on but no traffic for consecutive ticks → relax to 3 s.
+                    idleTrafficCount >= 10 -> 3_000L // Relaxed from 2s to 3s
+                    idleTrafficCount >= 3 -> 1_500L
                     else -> 1_000L
                 }
                 delay(nextDelay)
@@ -230,27 +249,41 @@ class SpeedMeterService : Service() {
      * Logic: Change > 10% OR crossing a 1KB boundary OR going to/from zero.
      */
     private fun isSignificantChange(current: Long, last: Long): Boolean {
+        if (last == -1L) return true // Always update on the first poll to replace "Initializing..."
         if (current == last) return false
         if ((current == 0L) != (last == 0L)) return true
-        if (abs(current - last) < 512) return false // Ignore sub-0.5KB fluctuations
+        if (abs(current - last) < 128) return false // Lowered from 512 for better responsiveness at low speeds
         
         val percentChange = if (last > 0) abs(current - last).toDouble() / last else 1.0
-        return percentChange > 0.1 || abs(current - last) > 2048
+        return percentChange > 0.1 || abs(current - last) > 1024 // Lowered from 2048
     }
 
     private fun updateNotification(speedDown: Long, speedUp: Long) {
         val showInBits = settingsManager.showInBits
         val precision = if (settingsManager.dataUnitPrecision == "1 decimal") 1 else 2
         
+        // Battery Efficiency: Determine if the notification content actually changed visually.
+        // If the formatted string is the same, we can skip the update or reuse the icon.
         val downStr = trafficProvider.formatSpeed(speedDown, showInBits, precision)
         val upStr = trafficProvider.formatSpeed(speedUp, showInBits, precision)
         val wifiStr = trafficProvider.formatBytes(todayWifi, precision)
         val mobileStr = trafficProvider.formatBytes(todayMobile, precision)
-        val speedIcon = iconGenerator.createSpeedIcon(speedDown, speedUp, showInBits)
 
         val title = "↓ $downStr   ↑ $upStr"
         val content = "WiFi: $wifiStr  •  Mobile: $mobileStr"
         val ticker = "↓ $downStr  ↑ $upStr"
+
+        // Accuracy: The speed icon rendering is the most expensive part.
+        // We only regenerate it if the numeric value or unit string has changed.
+        val currentIconLabel = "$downStr|$showInBits"
+        val speedIcon: IconCompat
+        if (currentIconLabel == lastIconLabel && lastIcon != null) {
+            speedIcon = lastIcon!!
+        } else {
+            speedIcon = iconGenerator.createSpeedIcon(speedDown, speedUp, showInBits)
+            lastIcon = speedIcon
+            lastIconLabel = currentIconLabel
+        }
 
         val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(NOTIFICATION_ID, createNotification(title, content, ticker, speedIcon))
