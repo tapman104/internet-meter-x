@@ -25,6 +25,8 @@ class HistoryAdapter(
 
     private val inputFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     private val outputFormat = SimpleDateFormat("MMM dd, yyyy (EEEE)", Locale.getDefault())
+    /** Cache parsed+formatted date labels to avoid re-parsing on every bind. */
+    private val dateDisplayCache = HashMap<String, String>()
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val binding = ItemUsageHistoryBinding.inflate(
@@ -43,8 +45,9 @@ class HistoryAdapter(
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(usage: DailyUsage) {
-            val date = inputFormat.parse(usage.date)
-            binding.tvDate.text = date?.let { outputFormat.format(it) } ?: usage.date
+            binding.tvDate.text = dateDisplayCache.getOrPut(usage.date) {
+                inputFormat.parse(usage.date)?.let { outputFormat.format(it) } ?: usage.date
+            }
             
             val mobile = trafficProvider.formatBytes(usage.totalMobile, precision)
             val wifi = trafficProvider.formatBytes(usage.totalWifi, precision)

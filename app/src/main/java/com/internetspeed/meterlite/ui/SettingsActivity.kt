@@ -127,15 +127,15 @@ class SettingsActivity : AppCompatActivity() {
 
         // Precision
         LayoutSettingsRowValueBinding.bind(binding.rowPrecision.root).apply {
-            tvValue.text = settingsManager.dataUnitPrecision
+            val labels = arrayOf("1 decimal", "2 decimal")
+            tvValue.text = labels[settingsManager.dataPrecision - 1]
             root.setOnClickListener {
-                val options = arrayOf("1 decimal", "2 decimal")
                 com.google.android.material.dialog.MaterialAlertDialogBuilder(this@SettingsActivity)
                     .setTitle("Data Unit Precision")
-                    .setItems(options) { _, which ->
-                        val newValue = options[which]
-                        settingsManager.dataUnitPrecision = newValue
-                        tvValue.text = newValue
+                    .setItems(labels) { _, which ->
+                        val newValue = which + 1
+                        settingsManager.dataPrecision = newValue
+                        tvValue.text = labels[which]
                     }
                     .show()
             }
@@ -188,7 +188,7 @@ class SettingsActivity : AppCompatActivity() {
                         settingsManager.showInBits = false
                         settingsManager.startOnBoot = true
                         settingsManager.notificationPriority = 0
-                        settingsManager.dataUnitPrecision = "2 decimal"
+                        settingsManager.dataPrecision = 2
                         settingsManager.backgroundActivity = true
                         settingsManager.dailyUsageAlert = "Off"
                         
@@ -211,4 +211,4 @@ class SettingsActivity : AppCompatActivity() {
             Toast.makeText(this, "Could not open link", Toast.LENGTH_SHORT).show()
         }
     }
-}
+}

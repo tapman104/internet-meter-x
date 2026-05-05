@@ -12,14 +12,13 @@ import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import androidx.core.graphics.drawable.IconCompat
 import com.internetspeed.meterlite.SpeedMeterApp
+import com.internetspeed.meterlite.core.util.ConnectivityProvider
 import com.internetspeed.meterlite.core.util.NotificationIconGenerator
 import com.internetspeed.meterlite.core.util.Speed
 import com.internetspeed.meterlite.core.util.TrafficStatsProvider
+import com.internetspeed.meterlite.data.model.LiveUsage
 import com.internetspeed.meterlite.ui.MainActivity
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import java.text.SimpleDateFormat
 import java.util.*
@@ -27,8 +26,9 @@ import kotlin.math.abs
 
 class SpeedMeterService : Service() {
 
-    private val serviceScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private val serviceScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
     private lateinit var trafficProvider: TrafficStatsProvider
+    private lateinit var connectivityProvider: ConnectivityProvider
     private lateinit var iconGenerator: NotificationIconGenerator
     private lateinit var powerManager: PowerManager
     private lateinit var settingsManager: com.internetspeed.meterlite.core.util.SettingsManager
@@ -36,6 +36,7 @@ class SpeedMeterService : Service() {
     private var todayWifi: Long = 0
     private var todayMobile: Long = 0
     private var currentDay: String = ""
+    private var currentEpochDay: Long = 0
     private var isSynced = false
 
     private var pendingWifiRx: Long = 0
@@ -47,8 +48,14 @@ class SpeedMeterService : Service() {
     private val DB_UPDATE_THRESHOLD = 10000L // Increased for battery efficiency
 
     private val prefListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
-        // Trigger a notification update immediately when settings change
-        updateNotification(lastDisplayedDown, lastDisplayedUp)
+        // Refresh cached settings then re-render. Dispatched to serviceScope to avoid
+        // cross-thread mutation of service state from the main thread.
+        serviceScope.launch {
+            cachedShowInBits = settingsManager.showInBits
+            cachedPrecision = settingsManager.dataPrecision
+            cachedNotifPriority = settingsManager.notificationPriority
+            updateNotification(lastDisplayedDown, lastDisplayedUp)
+        }
     }
 
     private var pollingJob: Job? = null
@@ -59,23 +66,56 @@ class SpeedMeterService : Service() {
 
     private var lastDisplayedDown: Long = -1
     private var lastDisplayedUp: Long = -1
-    private var lastDisplayedWifi: Long = -1
-    private var lastDisplayedMobile: Long = -1
-    
-    // Battery: Cache the last rendered icon and its label to skip expensive IPC/Drawing
+    // Battery: Cache last usage strings — avoids 2 extra formatBytes() calls per tick
+    // by comparing strings directly instead of reformatting the previous values.
+    private var lastDisplayedWifiStr: String = ""
+    private var lastDisplayedMobileStr: String = ""
+
+    // Battery: Cache the last rendered icon and its label to skip expensive bitmap draw.
     private var lastIconLabel: String = ""
     private var lastIcon: IconCompat? = null
-    
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+
+    private val dateFormat = ThreadLocal.withInitial { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+
+    /** Returns the local calendar day as an integer, timezone-aware. */
+    private fun localEpochDay(): Long {
+        val now = System.currentTimeMillis()
+        return (now + TimeZone.getDefault().getOffset(now)) / 86_400_000L
+    }
+
+    // Battery: Cached settings — refreshed only when prefs change, eliminating
+    // SharedPreferences Binder reads from the 1 Hz poll path.
+    private var cachedShowInBits: Boolean = false
+    private var cachedPrecision: Int = 2
+    private var cachedNotifPriority: Int = 0
+
+    // Battery: Cached system objects — obtained once at construction.
+    private lateinit var notificationManager: NotificationManager
+    private lateinit var contentPendingIntent: PendingIntent
+
+    // Battery: Guard usageFlow — only emit when values actually changed.
+    private var lastEmittedWifi: Long = -1
+    private var lastEmittedMobile: Long = -1
 
     override fun onCreate() {
         super.onCreate()
         
-        currentDay = dateFormat.format(Date())
+        currentDay = dateFormat.get()!!.format(Date())
         settingsManager = com.internetspeed.meterlite.core.util.SettingsManager(this)
         trafficProvider = TrafficStatsProvider()
+        trafficProvider.getSnapshot() // discard startup delta
+        connectivityProvider = ConnectivityProvider(this)
         iconGenerator = NotificationIconGenerator(this)
         powerManager = getSystemService(POWER_SERVICE) as PowerManager
+        notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        contentPendingIntent = PendingIntent.getActivity(
+            this, 0, Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        cachedShowInBits = settingsManager.showInBits
+        cachedPrecision = settingsManager.dataPrecision
+        cachedNotifPriority = settingsManager.notificationPriority
+        currentEpochDay = localEpochDay()
 
         val initialIcon = iconGenerator.createSpeedIcon(0, 0)
         val initialNotif = createNotification("Initializing...", "WiFi: 0 B  •  Mobile: 0 B", "Internet Meter X running", initialIcon)
@@ -118,7 +158,9 @@ class SpeedMeterService : Service() {
                 }
                 isSynced = true
                 updateLiveUsageFlow()
-                updateNotificationIfNeeded(_speedFlow.value.down, _speedFlow.value.up)
+                // Read .value once so down and up come from the same Speed instance.
+                val speed = (application as SpeedMeterApp).speedFlow.value
+                updateNotificationIfNeeded(speed.down, speed.up)
             }
         }
     }
@@ -134,20 +176,39 @@ class SpeedMeterService : Service() {
                 val currentDown = snapshot.speedDown
                 val currentUp = snapshot.speedUp
 
-                _speedFlow.value = Speed(currentDown, currentUp)
+                (application as SpeedMeterApp).speedFlow.value = Speed(currentDown, currentUp)
 
                 val mRx = snapshot.mobileRx
                 val mTx = snapshot.mobileTx
-                val wRx = maxOf(0L, snapshot.diffRx - mRx)
-                val wTx = maxOf(0L, snapshot.diffTx - mTx)
+                val rawWifiRx = maxOf(0L, snapshot.diffRx - mRx)
+                val rawWifiTx = maxOf(0L, snapshot.diffTx - mTx)
+
+                // Accuracy: Correctly classify hotspot usage.
+                // When the device is acting as a WiFi hotspot, TrafficStats attributes
+                // tethered client traffic to TRANSPORT_WIFI even though it runs over mobile
+                // data. Detect AP mode via WifiManager and reclassify as mobile.
+                val isWifi = connectivityProvider.getNetworkType() == ConnectivityProvider.NetworkType.WIFI
+                val treatAsMobile = isWifi && connectivityProvider.isHotspotActive()
+
+                var wRx = rawWifiRx
+                var wTx = rawWifiTx
+                var mobileRxTotal = mRx
+                var mobileTxTotal = mTx
+
+                if (treatAsMobile) {
+                    mobileRxTotal += rawWifiRx
+                    mobileTxTotal += rawWifiTx
+                    wRx = 0
+                    wTx = 0
+                }
 
                 todayWifi += wRx + wTx
                 pendingWifiRx += wRx
                 pendingWifiTx += wTx
 
-                todayMobile += mRx + mTx
-                pendingMobileRx += mRx
-                pendingMobileTx += mTx
+                todayMobile += mobileRxTotal + mobileTxTotal
+                pendingMobileRx += mobileRxTotal
+                pendingMobileTx += mobileTxTotal
 
                 updateLiveUsageFlow()
                 
@@ -180,31 +241,39 @@ class SpeedMeterService : Service() {
     }
 
     private fun checkDateChange() {
-        val today = dateFormat.format(Date())
-        if (today != currentDay) {
-            val oldDay = currentDay
-            val wRx = pendingWifiRx; val wTx = pendingWifiTx
-            val mRx = pendingMobileRx; val mTx = pendingMobileTx
-            
-            currentDay = today
-            todayWifi = 0
-            todayMobile = 0
-            pendingWifiRx = 0; pendingWifiTx = 0
-            pendingMobileRx = 0; pendingMobileTx = 0
-            isSynced = false 
-            
-            serviceScope.launch(Dispatchers.IO) {
-                val repo = (application as SpeedMeterApp).usageRepository
-                if (wRx > 0 || wTx > 0) repo.updateUsage(wRx, wTx, isWifi = true, date = oldDay)
-                if (mRx > 0 || mTx > 0) repo.updateUsage(mRx, mTx, isWifi = false, date = oldDay)
-            }
-            observeTodayUsage()
+        // Zero-allocation date-change detection: compare epoch days (integer arithmetic)
+        // instead of formatting a Date string on every poll tick.
+        val todayEpoch = localEpochDay()
+        if (todayEpoch == currentEpochDay) return
+
+        val today = dateFormat.get()!!.format(Date())
+        val oldDay = currentDay
+        val wRx = pendingWifiRx; val wTx = pendingWifiTx
+        val mRx = pendingMobileRx; val mTx = pendingMobileTx
+
+        currentDay = today
+        currentEpochDay = todayEpoch
+        todayWifi = 0
+        todayMobile = 0
+        pendingWifiRx = 0; pendingWifiTx = 0
+        pendingMobileRx = 0; pendingMobileTx = 0
+        isSynced = false
+        lastEmittedWifi = -1
+        lastEmittedMobile = -1
+
+        serviceScope.launch(Dispatchers.IO) {
+            val repo = (application as SpeedMeterApp).usageRepository
+            if (wRx > 0 || wTx > 0) repo.updateUsage(wRx, wTx, isWifi = true, date = oldDay)
+            if (mRx > 0 || mTx > 0) repo.updateUsage(mRx, mTx, isWifi = false, date = oldDay)
         }
+        observeTodayUsage()
     }
 
     private fun updateLiveUsageFlow() {
-        if (isSynced) {
-            _usageFlow.value = LiveUsage(todayWifi, todayMobile)
+        if (isSynced && (todayWifi != lastEmittedWifi || todayMobile != lastEmittedMobile)) {
+            (application as SpeedMeterApp).usageFlow.value = LiveUsage(todayWifi, todayMobile)
+            lastEmittedWifi = todayWifi
+            lastEmittedMobile = todayMobile
         }
     }
 
@@ -227,31 +296,21 @@ class SpeedMeterService : Service() {
     }
 
     private fun updateNotificationIfNeeded(speedDown: Long, speedUp: Long) {
-        val showInBits = settingsManager.showInBits
-        val precision = if (settingsManager.dataUnitPrecision == "1 decimal") 1 else 2
-        
-        // Battery Optimization: Only update notification if speed change is significant
-        val isSpeedSignificant = isSignificantChange(speedDown, lastDisplayedDown) || 
+        val isSpeedSignificant = isSignificantChange(speedDown, lastDisplayedDown) ||
                                  isSignificantChange(speedUp, lastDisplayedUp)
-        
-        // Usage updates: Only update if the displayed string would change (e.g. 1.2 MB -> 1.3 MB)
-        // This is MUCH more battery efficient than a fixed byte threshold.
-        val currentWifiStr = trafficProvider.formatBytes(todayWifi, precision)
-        val currentMobileStr = trafficProvider.formatBytes(todayMobile, precision)
-        
-        val lastWifiStr = trafficProvider.formatBytes(lastDisplayedWifi, precision)
-        val lastMobileStr = trafficProvider.formatBytes(lastDisplayedMobile, precision)
-        
-        val usageStrChanged = currentWifiStr != lastWifiStr || currentMobileStr != lastMobileStr
 
-        // Logic: Always update if speed is significant.
-        // If speed is not significant (e.g. jittering around 0), only update if usage changed visually.
+        // 2 formatBytes calls instead of 4: compare against the cached strings from
+        // the last update rather than reformatting the previous raw values.
+        val currentWifiStr = trafficProvider.formatBytes(todayWifi, cachedPrecision)
+        val currentMobileStr = trafficProvider.formatBytes(todayMobile, cachedPrecision)
+        val usageStrChanged = currentWifiStr != lastDisplayedWifiStr || currentMobileStr != lastDisplayedMobileStr
+
         if (isSpeedSignificant || usageStrChanged) {
-            updateNotification(speedDown, speedUp)
             lastDisplayedDown = speedDown
             lastDisplayedUp = speedUp
-            lastDisplayedWifi = todayWifi
-            lastDisplayedMobile = todayMobile
+            lastDisplayedWifiStr = currentWifiStr
+            lastDisplayedMobileStr = currentMobileStr
+            updateNotification(speedDown, speedUp, currentWifiStr, currentMobileStr)
         }
     }
 
@@ -269,45 +328,36 @@ class SpeedMeterService : Service() {
         return percentChange > 0.1 || abs(current - last) > 1024 // Lowered from 2048
     }
 
-    private fun updateNotification(speedDown: Long, speedUp: Long) {
-        val showInBits = settingsManager.showInBits
-        val precision = if (settingsManager.dataUnitPrecision == "1 decimal") 1 else 2
-        
-        // Battery Efficiency: Determine if the notification content actually changed visually.
-        // If the formatted string is the same, we can skip the update or reuse the icon.
-        val downStr = trafficProvider.formatSpeed(speedDown, showInBits, precision)
-        val upStr = trafficProvider.formatSpeed(speedUp, showInBits, precision)
-        val wifiStr = trafficProvider.formatBytes(todayWifi, precision)
-        val mobileStr = trafficProvider.formatBytes(todayMobile, precision)
+    private fun updateNotification(
+        speedDown: Long,
+        speedUp: Long,
+        wifiStr: String? = null,
+        mobileStr: String? = null
+    ) {
+        val resolvedWifiStr = wifiStr ?: trafficProvider.formatBytes(todayWifi, cachedPrecision)
+        val resolvedMobileStr = mobileStr ?: trafficProvider.formatBytes(todayMobile, cachedPrecision)
+        val downStr = trafficProvider.formatSpeed(speedDown, cachedShowInBits, cachedPrecision)
+        val upStr = trafficProvider.formatSpeed(speedUp, cachedShowInBits, cachedPrecision)
 
         val title = "↓ $downStr   ↑ $upStr"
-        val content = "WiFi: $wifiStr  •  Mobile: $mobileStr"
+        val content = "WiFi: $resolvedWifiStr  •  Mobile: $resolvedMobileStr"
         val ticker = "↓ $downStr  ↑ $upStr"
 
-        // Accuracy: The speed icon rendering is the most expensive part.
-        // We only regenerate it if the numeric value or unit string has changed.
-        val currentIconLabel = "$downStr|$showInBits"
-        val speedIcon: IconCompat
-        if (currentIconLabel == lastIconLabel && lastIcon != null) {
-            speedIcon = lastIcon!!
+        val currentIconLabel = "$downStr|$cachedShowInBits"
+        val speedIcon = if (currentIconLabel == lastIconLabel && lastIcon != null) {
+            lastIcon!!
         } else {
-            speedIcon = iconGenerator.createSpeedIcon(speedDown, speedUp, showInBits)
-            lastIcon = speedIcon
-            lastIconLabel = currentIconLabel
+            iconGenerator.createSpeedIcon(speedDown, speedUp, cachedShowInBits).also {
+                lastIcon = it
+                lastIconLabel = currentIconLabel
+            }
         }
 
-        val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(NOTIFICATION_ID, createNotification(title, content, ticker, speedIcon))
     }
 
     private fun createNotification(title: String, content: String, ticker: String, speedIcon: IconCompat): Notification {
-        val intent = Intent(this, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(
-            this, 0, intent,
-            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
-        )
-
-        val priority = if (settingsManager.notificationPriority == 1) {
+        val priority = if (cachedNotifPriority == 1) {
             NotificationCompat.PRIORITY_MAX
         } else {
             NotificationCompat.PRIORITY_LOW
@@ -320,7 +370,7 @@ class SpeedMeterService : Service() {
             .setSmallIcon(speedIcon)
             .setOngoing(true)
             .setSilent(true)
-            .setContentIntent(pendingIntent)
+            .setContentIntent(contentPendingIntent)
             .setPriority(priority)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build()
@@ -331,32 +381,27 @@ class SpeedMeterService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        // Cancel the scope FIRST so the polling coroutine stops mutating pending
+        // values before we capture a snapshot of them for the final DB flush.
+        serviceScope.cancel()
+
         val app = application as SpeedMeterApp
         val wRx = pendingWifiRx; val wTx = pendingWifiTx
         val mRx = pendingMobileRx; val mTx = pendingMobileTx
         val date = currentDay
 
-        @OptIn(DelicateCoroutinesApi::class)
-        GlobalScope.launch(Dispatchers.IO) {
+            runBlocking(Dispatchers.IO) {
             if (wRx > 0 || wTx > 0) app.usageRepository.updateUsage(wRx, wTx, isWifi = true, date = date)
             if (mRx > 0 || mTx > 0) app.usageRepository.updateUsage(mRx, mTx, isWifi = false, date = date)
         }
-        
-        getSharedPreferences("settings", MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(prefListener)
-        serviceScope.cancel()
-        super.onDestroy()
-        _speedFlow.value = Speed(0, 0)
-        _usageFlow.value = null
-    }
 
-    data class LiveUsage(val wifi: Long, val mobile: Long)
+        getSharedPreferences("settings", MODE_PRIVATE).unregisterOnSharedPreferenceChangeListener(prefListener)
+        super.onDestroy()
+        app.speedFlow.value = Speed(0, 0)
+        app.usageFlow.value = null
+    }
 
     companion object {
         private const val NOTIFICATION_ID = 1001
-        private val _speedFlow = MutableStateFlow(Speed(0, 0))
-        val speedFlow: StateFlow<Speed> = _speedFlow.asStateFlow()
-        
-        private val _usageFlow = MutableStateFlow<LiveUsage?>(null)
-        val usageFlow: StateFlow<LiveUsage?> = _usageFlow.asStateFlow()
     }
 }

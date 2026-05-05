@@ -27,9 +27,10 @@ class SettingsManager(context: Context) {
         get() = prefs.getInt(KEY_NOTIF_PRIORITY, 0) // 0: Low, 1: High
         set(value) = prefs.edit().putInt(KEY_NOTIF_PRIORITY, value).apply()
 
-    var dataUnitPrecision: String
-        get() = prefs.getString(KEY_DATA_PRECISION, "2 decimal") ?: "2 decimal"
-        set(value) = prefs.edit().putString(KEY_DATA_PRECISION, value).apply()
+    /** 1 or 2 decimal places. Stored as an Int. */
+    var dataPrecision: Int
+        get() = prefs.getInt(KEY_DATA_PRECISION, 2)
+        set(value) = prefs.edit().putInt(KEY_DATA_PRECISION, value).apply()
 
     var backgroundActivity: Boolean
         get() = prefs.getBoolean(KEY_BG_ACTIVITY, true)

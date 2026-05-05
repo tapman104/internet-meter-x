@@ -86,8 +86,7 @@ class NotificationIconGenerator(private val context: Context) {
         
         if (showInBits) b *= 8
 
-        // Accuracy: Below 1000 units, show raw value (e.g. "45 B/s") instead of rounding to 0
-        if (b < 1000) return Pair(b.toString(), unitSuffix)
+        if (b < 1024) return Pair("0", if (showInBits) "Kb/s" else "KB/s")
         
         val k = b / 1024.0
         if (k < 9.95) {

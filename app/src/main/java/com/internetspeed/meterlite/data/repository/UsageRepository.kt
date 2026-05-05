@@ -10,9 +10,9 @@ import java.util.*
 
 class UsageRepository(private val usageDao: UsageDao) {
 
-    private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    private val dateFormat = ThreadLocal.withInitial { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
 
-    fun getTodayDate(): String = dateFormat.format(Date())
+    fun getTodayDate(): String = dateFormat.get()!!.format(Date())
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val todayDateFlow = flow {
@@ -32,7 +32,7 @@ class UsageRepository(private val usageDao: UsageDao) {
     fun getYesterdayUsageFlow(): Flow<DailyUsage?> = todayDateFlow.flatMapLatest {
         val calendar = Calendar.getInstance()
         calendar.add(Calendar.DATE, -1)
-        usageDao.getUsageFlowByDate(dateFormat.format(calendar.time))
+        usageDao.getUsageFlowByDate(dateFormat.get()!!.format(calendar.time))
     }
 
     suspend fun updateUsage(rxDiff: Long, txDiff: Long, isWifi: Boolean, date: String? = null) {

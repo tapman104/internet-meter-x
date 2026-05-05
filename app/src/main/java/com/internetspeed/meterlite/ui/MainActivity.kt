@@ -5,25 +5,22 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.View
-import android.view.ViewTreeObserver
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.internetspeed.meterlite.SpeedMeterApp
 import com.internetspeed.meterlite.core.service.SpeedMeterService
-import com.internetspeed.meterlite.core.util.TrafficStatsProvider
 import com.internetspeed.meterlite.data.entity.DailyUsage
 import com.internetspeed.meterlite.databinding.ActivityMainBinding
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
-    private val trafficProvider = TrafficStatsProvider()
+    private val viewModel: MainViewModel by viewModels()
     private lateinit var powerManager: android.os.PowerManager
     private lateinit var settingsManager: com.internetspeed.meterlite.core.util.SettingsManager
     private lateinit var historyAdapter: HistoryAdapter
@@ -61,27 +58,23 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         // Refresh UI in case settings changed
-        val precision = if (settingsManager.dataUnitPrecision == "1 decimal") 1 else 2
-        historyAdapter.setPrecision(precision)
+        historyAdapter.setPrecision(settingsManager.dataPrecision)
         updateHistoryDisplay()
         // Flows in observeUsage/observeHistory will naturally pick up data changes,
         // and precision is checked inside their collectors.
     }
 
     private fun setupHistoryList() {
-        val precision = if (settingsManager.dataUnitPrecision == "1 decimal") 1 else 2
-        historyAdapter = HistoryAdapter(trafficProvider, precision)
+        historyAdapter = HistoryAdapter(viewModel.trafficProvider, settingsManager.dataPrecision)
         binding.rvHistory.layoutManager = LinearLayoutManager(this)
         binding.rvHistory.adapter = historyAdapter
         binding.rvHistory.isNestedScrollingEnabled = false
     }
 
     private fun observeHistory() {
-        val repository = (application as SpeedMeterApp).usageRepository
-        
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                repository.getLast30DaysUsage().collectLatest { history ->
+                viewModel.history.collectLatest { history ->
                     fullHistory = history
                     updateHistoryDisplay()
                 }
@@ -150,36 +143,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun observeUsage() {
-        val repository = (application as SpeedMeterApp).usageRepository
-        
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                combine(
-                    repository.getTodayUsageFlow(),
-                    SpeedMeterService.usageFlow
-                ) { dbUsage, liveUsage ->
-                    liveUsage ?: dbUsage?.let { SpeedMeterService.LiveUsage(it.totalWifi, it.totalMobile) }
-                }.collectLatest { usage ->
+                viewModel.todayUsage.collectLatest { usage ->
                     if (usage != null) {
-                        val precision = if (settingsManager.dataUnitPrecision == "1 decimal") 1 else 2
+                        val precision = settingsManager.dataPrecision
                         val total = usage.wifi + usage.mobile
-                        binding.tvTodayTotal.text = trafficProvider.formatBytes(total, precision)
-                        binding.tvTodayBreakdown.text = "WiFi: ${trafficProvider.formatBytes(usage.wifi, precision)} | Mobile: ${trafficProvider.formatBytes(usage.mobile, precision)}"
+                        binding.tvTodayTotal.text = viewModel.trafficProvider.formatBytes(total, precision)
+                        binding.tvTodayBreakdown.text = "WiFi: ${viewModel.trafficProvider.formatBytes(usage.wifi, precision)} | Mobile: ${viewModel.trafficProvider.formatBytes(usage.mobile, precision)}"
                     }
                 }
             }
         }
 
-        lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) {
-                repository.getYesterdayUsageFlow().collectLatest { usage ->
-                    val precision = if (settingsManager.dataUnitPrecision == "1 decimal") 1 else 2
-                    val wifi = usage?.totalWifi ?: 0L
-                    val mobile = usage?.totalMobile ?: 0L
-                    binding.tvYesterdayTotal.text = trafficProvider.formatBytes(wifi + mobile, precision)
-                    binding.tvYesterdayBreakdown.text = "WiFi: ${trafficProvider.formatBytes(wifi, precision)} | Mobile: ${trafficProvider.formatBytes(mobile, precision)}"
-                }
-            }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 101 && (grantResults.isEmpty() || grantResults[0] != PackageManager.PERMISSION_GRANTED)) {
+            android.widget.Toast.makeText(this, "Notification permission denied. Speed indicator won't show.", android.widget.Toast.LENGTH_LONG).show()
         }
     }
 
