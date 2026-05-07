@@ -83,12 +83,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateHistoryDisplay() {
-        if (isExpanded || fullHistory.size <= 7) {
-            historyAdapter.submitList(fullHistory)
+        if (fullHistory.isEmpty()) {
+            binding.tvNoHistory.visibility = View.VISIBLE
             binding.btnViewMore.visibility = View.GONE
+            historyAdapter.submitList(emptyList())
         } else {
-            historyAdapter.submitList(fullHistory.take(7))
-            binding.btnViewMore.visibility = View.VISIBLE
+            binding.tvNoHistory.visibility = View.GONE
+            if (isExpanded || fullHistory.size <= 7) {
+                historyAdapter.submitList(fullHistory)
+                binding.btnViewMore.visibility = View.GONE
+            } else {
+                historyAdapter.submitList(fullHistory.take(7))
+                binding.btnViewMore.visibility = View.VISIBLE
+            }
         }
         checkContentHeight()
     }
@@ -115,9 +122,9 @@ class MainActivity : AppCompatActivity() {
                 @Suppress("DEPRECATION")
                 packageManager.getPackageInfo(packageName, 0)
             }
-            binding.tvVersion.text = "v${pInfo.versionName}"
-        } catch (e: PackageManager.NameNotFoundException) {
-            binding.tvVersion.text = ""
+            binding.tvVersion.text = "v${pInfo.versionName ?: "1.0.0"}"
+        } catch (e: Exception) {
+            binding.tvVersion.text = "v1.0.0"
         }
     }
 

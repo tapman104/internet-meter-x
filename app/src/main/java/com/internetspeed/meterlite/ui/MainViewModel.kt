@@ -35,6 +35,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val yesterdayUsage: StateFlow<DailyUsage?> = repository.getYesterdayUsageFlow()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    val history: StateFlow<List<DailyUsage>> = repository.getLast30DaysUsage()
+    val history: StateFlow<List<DailyUsage>> = repository.getAllUsageHistory()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 }

@@ -22,8 +22,8 @@ interface UsageDao {
     @Query("UPDATE daily_usage SET mobileRx = mobileRx + :rx, mobileTx = mobileTx + :tx WHERE date = :date")
     suspend fun incrementMobileUsage(date: String, rx: Long, tx: Long)
 
-    @Query("SELECT * FROM daily_usage ORDER BY date DESC LIMIT 30")
-    fun getLast30DaysUsage(): Flow<List<DailyUsage>>
+    @Query("SELECT * FROM daily_usage ORDER BY date DESC")
+    fun getAllUsageHistory(): Flow<List<DailyUsage>>
 
     @Query("DELETE FROM daily_usage")
     suspend fun clearAll()

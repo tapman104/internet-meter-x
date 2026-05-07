@@ -11,6 +11,9 @@
     <string name="settings_priority">Notification Priority</string>
     <string name="settings_priority_desc">Show at the top of notifications</string>
     <string name="history_title">Usage History</string>
-    <string name="history_last_30_days">Last 30 Days</string>
+    <string name="history_full">Full History</string>
+    <string name="history_header">Usage History</string>
+    <string name="view_more">View More</string>
+    <string name="no_history">No history available yet</string>
     <string name="no_data">No data available</string>
 </resources>
