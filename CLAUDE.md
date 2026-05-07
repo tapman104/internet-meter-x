@@ -20,6 +20,7 @@ This file documents how GitHub Copilot (Claude) was used during development of *
 | 2026-05-02 | Rewrote `README.md` with accurate architecture, permission table, and troubleshooting | `README.md` |
 | 2026-05-02 | Created `CHANGELOG.md` (Keep a Changelog format) | `CHANGELOG.md` |
 | 2026-05-02 | Created this file | `CLAUDE.md` |
+| 2026-05-07 | **Rebranded to com.meter.x**, removed 30-day history limit, added history empty states, and audited battery/accuracy performance. | `app/build.gradle`, `UsageDao.kt`, `MainActivity.kt` |
 
 ---
 
@@ -52,7 +53,8 @@ This file documents how GitHub Copilot (Claude) was used during development of *
 - When asking about the icon, reference `NotificationIconGenerator.kt` and the 24 dp canvas spec.
 - When asking about service lifecycle (battery, kill, restart), reference `SpeedMeterService` + `BootReceiver` together.
 - Build commands: always use `.\gradlew.bat` on Windows PowerShell (not `./gradlew`).
-- The app package is `com.internetspeed.meterlite`.
+- The app package identity (applicationId) is `com.meter.x`.
+- The code namespace is `com.internetspeed.meterlite` (kept to avoid refactoring noise).
 
 ---
 

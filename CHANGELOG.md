@@ -6,6 +6,22 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [1.3.0] — 2026-05-07
+
+### Added
+- **Unlimited History**: Removed the 30-day retention limit; usage history is now stored indefinitely.
+- **Empty State UI**: Added a user-friendly "No History" view for fresh installations or cleared data.
+- **Rebranding**: Changed application identity to `com.meter.x`.
+
+### Changed
+- **Adaptive EMA Smoothing**: Implemented Adaptive Exponential Moving Average for the speed indicator to react instantly to bursts while maintaining stability.
+- **Enhanced Battery Efficiency**: Optimized polling logic to relax during screen-off (15s) and Doze mode (60s).
+- **Production Build**: Fully optimized release build with R8 minification and resource shrinking (~3.1 MB).
+
+### Fixed
+- **Accuracy**: Improved independent direction snapping; idle uploads now drop to zero instantly even if download traffic is active.
+- **Hotspot Detection**: Verified and fixed hotspot traffic reclassification for more accurate mobile usage reporting.
+
 ## [1.2.1] — 2026-05-04
 
 ### Fixed

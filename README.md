@@ -12,7 +12,10 @@ A lightweight Android app that displays real-time network download/upload speeds
 - **Foreground service** (`SpeedMeterService`) — polls `TrafficStats` on a coroutine loop; survives screen-off and battery optimisation where permitted.
 - **Boot auto-start** — `BootReceiver` restarts the service after device reboot, respecting user preferences.
 - **Per-interface breakdown** — tracks WiFi and mobile traffic separately via `ConnectivityProvider`.
-- **Usage history** — stores hourly/daily traffic totals in a Room database (`UsageDatabase`) for the history screen.
+- **Unlimited Usage history** — stores historical traffic totals in a Room database (`UsageDatabase`) indefinitely with no retention limits.
+- **Empty State Support** — gracefully handles first-run or cleared data scenarios with specialized UI views.
+- **Adaptive Accuracy** — uses Adaptive EMA (Exponential Moving Average) to provide high-precision speed measurements while maintaining stability.
+- **Battery Efficiency** — implements multi-tier adaptive polling (1s → 3s → 15s → 60s) based on traffic presence and device state (Doze/Screen-off).
 - **Material You theming** — single `MainActivity` with "Internet Meter X" branding and dynamic color support.
 
 ---
@@ -77,7 +80,7 @@ adb install -r app\build\outputs\apk\debug\app-debug.apk
 .\gradlew clean
 ```
 
-Output APK: `app/build/outputs/apk/debug/app-debug.apk`
+Output APK: `app/build/outputs/apk/release/app-release.apk` (Signed)
 
 ---
 
@@ -98,7 +101,9 @@ Output APK: `app/build/outputs/apk/debug/app-debug.apk`
 
 - **Do not commit** anything under `app/build/` — covered by `.gitignore`.
 - Speed icon rendering is in `NotificationIconGenerator.kt`. Text sizes are expressed as fractions of the 24 dp canvas so they auto-scale with display density.
-- `TrafficStatsProvider.formatSpeed()` handles B/s → KB/s → MB/s → GB/s formatting.
+- **Adaptive EMA**: Speed calculation uses variable smoothing constants to react instantly to bursts while filtering noise.
+- **Polling Tiers**: Polling relaxes during screen-off (15s) and Doze mode (60s) to maximize battery life.
+- **Status ID**: The application identity has been rebranded to `com.meter.x`.
 - Logcat tag: search for `SpeedMeterService` or `NotificationIconGenerator`.
 
 ---
