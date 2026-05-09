@@ -54,19 +54,22 @@ jobs:
 
       # ── 5. Rename APK to include version ─────────────────────────────────
       - name: Rename APK
+        id: apk
         run: |
-          VERSION_NAME=$(./gradlew -q printVersionName 2>/dev/null || grep versionName app/build.gradle | awk '{print $2}' | tr -d '"')
-          mv app/build/outputs/apk/release/app-release.apk \
-             app/build/outputs/apk/release/InternetMeterX-${VERSION_NAME}.apk
-          echo "APK_PATH=app/build/outputs/apk/release/InternetMeterX-${VERSION_NAME}.apk" >> $GITHUB_ENV
-          echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV
+          # Reliably extract versionName from defaultConfig block only
+          VERSION_NAME=$(grep -m 1 'versionName' app/build.gradle | awk '{print $2}' | tr -d '"')
+          APK_SRC=app/build/outputs/apk/release/app-release.apk
+          APK_DST=app/build/outputs/apk/release/InternetMeterX-${VERSION_NAME}.apk
+          mv "$APK_SRC" "$APK_DST"
+          echo "apk_path=${APK_DST}" >> $GITHUB_OUTPUT
+          echo "version_name=${VERSION_NAME}" >> $GITHUB_OUTPUT
 
       # ── 6. Upload APK as workflow artifact (always available) ─────────────
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: InternetMeterX-${{ env.VERSION_NAME }}
-          path: ${{ env.APK_PATH }}
+          name: InternetMeterX-${{ steps.apk.outputs.version_name }}
+          path: ${{ steps.apk.outputs.apk_path }}
           retention-days: 30
 
       # ── 7. Create GitHub Release (only on version tags) ───────────────────
@@ -74,9 +77,10 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ env.APK_PATH }}
+          files: ${{ steps.apk.outputs.apk_path }}
           generate_release_notes: true
           draft: false
           prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
