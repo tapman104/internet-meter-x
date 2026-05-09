@@ -19,6 +19,7 @@ import com.internetspeed.meterlite.SpeedMeterApp
 import kotlinx.coroutines.launch
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AppCompatDelegate
 import com.internetspeed.meterlite.data.entity.DailyUsage
 import kotlinx.coroutines.flow.first
 import org.json.JSONArray
@@ -196,6 +197,15 @@ class SettingsActivity : AppCompatActivity() {
                     .setPositiveButton(android.R.string.ok) { _: DialogInterface, _: Int ->
                         if (selected != settingsManager.appTheme) {
                             settingsManager.appTheme = selected
+                            
+                            // Apply the new night mode immediately
+                            val mode = when (selected) {
+                                SettingsManager.THEME_LIGHT -> AppCompatDelegate.MODE_NIGHT_NO
+                                SettingsManager.THEME_MATERIAL_YOU -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+                                else -> AppCompatDelegate.MODE_NIGHT_YES
+                            }
+                            AppCompatDelegate.setDefaultNightMode(mode)
+
                             // Recreate so the new theme takes effect immediately
                             recreate()
                         }

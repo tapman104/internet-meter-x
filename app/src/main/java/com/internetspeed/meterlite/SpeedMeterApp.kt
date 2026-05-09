@@ -5,6 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
+import androidx.appcompat.app.AppCompatDelegate
+import com.internetspeed.meterlite.core.util.SettingsManager
 import com.internetspeed.meterlite.core.util.Speed
 import com.internetspeed.meterlite.data.UsageDatabase
 import com.internetspeed.meterlite.data.model.LiveUsage
@@ -24,10 +26,24 @@ class SpeedMeterApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        
+        // Apply theme preference globally on startup
+        val settingsManager = SettingsManager(this)
+        applyTheme(settingsManager.appTheme)
+
         createNotificationChannel()
 
         val database = UsageDatabase.getDatabase(this)
         usageRepository = UsageRepository(database.usageDao())
+    }
+
+    private fun applyTheme(theme: Int) {
+        val mode = when (theme) {
+            SettingsManager.THEME_LIGHT -> AppCompatDelegate.MODE_NIGHT_NO
+            SettingsManager.THEME_MATERIAL_YOU -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+            else -> AppCompatDelegate.MODE_NIGHT_YES
+        }
+        AppCompatDelegate.setDefaultNightMode(mode)
     }
 
     private fun createNotificationChannel() {

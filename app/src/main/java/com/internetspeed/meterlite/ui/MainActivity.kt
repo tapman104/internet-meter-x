@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.view.View
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -15,6 +16,7 @@ import com.internetspeed.meterlite.core.service.SpeedMeterService
 import com.internetspeed.meterlite.data.entity.DailyUsage
 import com.internetspeed.meterlite.databinding.ActivityMainBinding
 import com.internetspeed.meterlite.R
+import com.internetspeed.meterlite.core.util.SettingsManager
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -23,18 +25,18 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private val viewModel: MainViewModel by viewModels()
     private lateinit var powerManager: android.os.PowerManager
-    private lateinit var settingsManager: com.internetspeed.meterlite.core.util.SettingsManager
+    private lateinit var settingsManager: SettingsManager
     private lateinit var historyAdapter: HistoryAdapter
     private var fullHistoryItems: List<com.internetspeed.meterlite.data.model.HistoryItem> = emptyList()
     private var isExpanded = false
     private var currentTheme: Int = -1
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        
-        settingsManager = com.internetspeed.meterlite.core.util.SettingsManager(this)
+        settingsManager = SettingsManager(this)
         currentTheme = settingsManager.appTheme
         applyAppTheme(currentTheme)
+        
+        super.onCreate(savedInstanceState)
         
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -77,10 +79,17 @@ class MainActivity : AppCompatActivity() {
 
     /** Switches the Activity theme based on the stored preference. */
     private fun applyAppTheme(theme: Int) {
+        val mode = when (theme) {
+            SettingsManager.THEME_LIGHT -> AppCompatDelegate.MODE_NIGHT_NO
+            SettingsManager.THEME_MATERIAL_YOU -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+            else -> AppCompatDelegate.MODE_NIGHT_YES
+        }
+        AppCompatDelegate.setDefaultNightMode(mode)
+
         when (theme) {
-            com.internetspeed.meterlite.core.util.SettingsManager.THEME_LIGHT -> 
+            SettingsManager.THEME_LIGHT -> 
                 setTheme(R.style.Theme_InternetSpeedMeterLite_Light)
-            com.internetspeed.meterlite.core.util.SettingsManager.THEME_MATERIAL_YOU -> {
+            SettingsManager.THEME_MATERIAL_YOU -> {
                 setTheme(R.style.Theme_InternetSpeedMeterLite_MaterialYou)
                 if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
                     com.google.android.material.color.DynamicColors.applyToActivityIfAvailable(this)
