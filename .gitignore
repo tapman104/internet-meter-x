@@ -38,7 +38,7 @@ captures/
 
 
 # Google services (may contain secrets)
-google-services.json
+# google-services.json
 
 # Misc
 .DS_Store

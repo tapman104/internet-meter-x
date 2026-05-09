@@ -5,6 +5,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.view.View
+import android.view.WindowInsetsController
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
@@ -32,15 +33,18 @@ class MainActivity : AppCompatActivity() {
     private var currentTheme: Int = -1
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        settingsManager = SettingsManager(this)
-        currentTheme = settingsManager.appTheme
-        applyAppTheme(currentTheme)
+        val theme = SettingsManager.getTheme(this)
+        applyAppThemeEarly(theme)
         
         super.onCreate(savedInstanceState)
         
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        
+        applySystemBars(theme)
 
+        settingsManager = SettingsManager(this)
+        currentTheme = theme
         powerManager = getSystemService(POWER_SERVICE) as android.os.PowerManager
 
         setupHistoryList()
@@ -77,8 +81,8 @@ class MainActivity : AppCompatActivity() {
         updateHistoryDisplay()
     }
 
-    /** Switches the Activity theme based on the stored preference. */
-    private fun applyAppTheme(theme: Int) {
+    /** Sets the base theme and applies Dynamic Colors if needed. Called before super.onCreate(). */
+    private fun applyAppThemeEarly(theme: Int) {
         val mode = when (theme) {
             SettingsManager.THEME_LIGHT -> AppCompatDelegate.MODE_NIGHT_NO
             SettingsManager.THEME_MATERIAL_YOU -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
@@ -87,15 +91,30 @@ class MainActivity : AppCompatActivity() {
         AppCompatDelegate.setDefaultNightMode(mode)
 
         when (theme) {
-            SettingsManager.THEME_LIGHT -> 
+            SettingsManager.THEME_LIGHT -> {
                 setTheme(R.style.Theme_InternetSpeedMeterLite_Light)
+            }
             SettingsManager.THEME_MATERIAL_YOU -> {
                 setTheme(R.style.Theme_InternetSpeedMeterLite_MaterialYou)
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                    com.google.android.material.color.DynamicColors.applyToActivityIfAvailable(this)
-                }
+                com.google.android.material.color.DynamicColors.applyToActivityIfAvailable(this)
             }
             else -> setTheme(R.style.Theme_InternetSpeedMeterLite) // DARK (default)
+        }
+    }
+
+    /** Configures system bars for light/dark content. Called after setContentView(). */
+    private fun applySystemBars(theme: Int) {
+        if (theme == SettingsManager.THEME_LIGHT) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                window.insetsController?.setSystemBarsAppearance(
+                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
+                            WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
+                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
+                            WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+                )
+            }
+            window.statusBarColor = getColor(R.color.light_surface)
+            window.navigationBarColor = getColor(R.color.light_surface)
         }
     }
 

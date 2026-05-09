@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.View
+import android.view.WindowInsetsController
 import androidx.appcompat.app.AppCompatActivity
 import com.internetspeed.meterlite.R
 import com.internetspeed.meterlite.core.util.SettingsManager
@@ -41,31 +42,58 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+        val theme = SettingsManager.getTheme(this)
+        applyAppThemeEarly(theme)
         
-        // Apply theme before inflation so colors + backgrounds are correct
-        settingsManager = SettingsManager(this)
-        applyAppTheme(settingsManager.appTheme)
+        super.onCreate(savedInstanceState)
         
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        
+        applySystemBars(theme)
 
+        settingsManager = SettingsManager(this)
         setupUI()
         bindSettings()
     }
 
-    /** Switches the Activity theme based on the stored preference. */
-    private fun applyAppTheme(theme: Int) {
+    /** Sets the base theme and applies Dynamic Colors if needed. Called before super.onCreate(). */
+    private fun applyAppThemeEarly(theme: Int) {
+        val mode = when (theme) {
+            SettingsManager.THEME_LIGHT -> AppCompatDelegate.MODE_NIGHT_NO
+            SettingsManager.THEME_MATERIAL_YOU -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+            else -> AppCompatDelegate.MODE_NIGHT_YES
+        }
+        
+        if (AppCompatDelegate.getDefaultNightMode() != mode) {
+            AppCompatDelegate.setDefaultNightMode(mode)
+        }
+
         when (theme) {
-            SettingsManager.THEME_LIGHT -> setTheme(R.style.Theme_InternetMeterX_Settings_Light)
+            SettingsManager.THEME_LIGHT -> {
+                setTheme(R.style.Theme_InternetMeterX_Settings_Light)
+            }
             SettingsManager.THEME_MATERIAL_YOU -> {
                 setTheme(R.style.Theme_InternetMeterX_Settings_MaterialYou)
-                // Apply device wallpaper colors on Android 12+ (API 31+)
-                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
-                    com.google.android.material.color.DynamicColors.applyToActivityIfAvailable(this)
-                }
+                com.google.android.material.color.DynamicColors.applyToActivityIfAvailable(this)
             }
             else -> setTheme(R.style.Theme_InternetMeterX_Settings) // DARK (default)
+        }
+    }
+
+    /** Configures system bars for light/dark content. Called after setContentView(). */
+    private fun applySystemBars(theme: Int) {
+        if (theme == SettingsManager.THEME_LIGHT) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                window.insetsController?.setSystemBarsAppearance(
+                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
+                            WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,
+                    WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
+                            WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+                )
+            }
+            window.statusBarColor = getColor(R.color.light_settings_bg)
+            window.navigationBarColor = getColor(R.color.light_settings_bg)
         }
     }
 
@@ -197,16 +225,6 @@ class SettingsActivity : AppCompatActivity() {
                     .setPositiveButton(android.R.string.ok) { _: DialogInterface, _: Int ->
                         if (selected != settingsManager.appTheme) {
                             settingsManager.appTheme = selected
-                            
-                            // Apply the new night mode immediately
-                            val mode = when (selected) {
-                                SettingsManager.THEME_LIGHT -> AppCompatDelegate.MODE_NIGHT_NO
-                                SettingsManager.THEME_MATERIAL_YOU -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
-                                else -> AppCompatDelegate.MODE_NIGHT_YES
-                            }
-                            AppCompatDelegate.setDefaultNightMode(mode)
-
-                            // Recreate so the new theme takes effect immediately
                             recreate()
                         }
                     }

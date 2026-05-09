@@ -106,7 +106,7 @@ class SpeedMeterService : Service() {
         trafficProvider = TrafficStatsProvider()
         trafficProvider.getSnapshot() // discard startup delta
         connectivityProvider = ConnectivityProvider(this)
-        iconGenerator = NotificationIconGenerator(this)
+        iconGenerator = NotificationIconGenerator(this, trafficProvider)
         powerManager = getSystemService(POWER_SERVICE) as PowerManager
         notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         contentPendingIntent = PendingIntent.getActivity(
@@ -300,7 +300,7 @@ class SpeedMeterService : Service() {
             lastDisplayedUp = speedUp
             lastDisplayedWifiStr = currentWifiStr
             lastDisplayedMobileStr = currentMobileStr
-            updateNotification(speedDown, speedUp, currentWifiStr, currentMobileStr)
+            updateNotification(speedDown, speedUp)
         }
     }
 
@@ -320,17 +320,13 @@ class SpeedMeterService : Service() {
 
     private fun updateNotification(
         speedDown: Long,
-        speedUp: Long,
-        wifiStr: String? = null,
-        mobileStr: String? = null
+        speedUp: Long
     ) {
-        val resolvedWifiStr = wifiStr ?: trafficProvider.formatBytes(todayWifi, cachedPrecision)
-        val resolvedMobileStr = mobileStr ?: trafficProvider.formatBytes(todayMobile, cachedPrecision)
         val downStr = trafficProvider.formatSpeed(speedDown, cachedShowInBits, cachedPrecision)
         val upStr = trafficProvider.formatSpeed(speedUp, cachedShowInBits, cachedPrecision)
 
-        val title = "↓ $downStr   ↑ $upStr"
-        val content = getString(R.string.service_usage_summary, resolvedWifiStr, resolvedMobileStr)
+        val title = "↓ $downStr"
+        val content = "↓ $downStr  ↑ $upStr"
         val ticker = getString(R.string.service_ticker)
 
         val currentIconLabel = "$downStr|$cachedShowInBits"

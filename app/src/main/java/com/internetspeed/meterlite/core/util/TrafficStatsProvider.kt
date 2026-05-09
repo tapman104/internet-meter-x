@@ -136,15 +136,39 @@ class TrafficStatsProvider {
         if (b < 1000) return "$b $unit"
         
         val kb = b / 1024.0
-        if (kb < 9.95) return formatDecimal(kb, precision) + " K $unit"
-        if (kb < 999.5) return kb.roundToLong().toString() + " K $unit"
+        if (kb < 9.95) return formatDecimal(kb, precision) + " K$unit"
+        if (kb < 999.5) return kb.roundToLong().toString() + " K$unit"
         
         val mb = kb / 1024.0
-        if (mb < 9.95) return formatDecimal(mb, precision) + " M $unit"
-        if (mb < 999.5) return mb.roundToLong().toString() + " M $unit"
+        if (mb < 9.95) return formatDecimal(mb, precision) + " M$unit"
+        if (mb < 999.5) return mb.roundToLong().toString() + " M$unit"
         
         val gb = mb / 1024.0
-        return formatDecimal(gb, precision) + " G $unit"
+        return formatDecimal(gb, precision) + " G$unit"
+    }
+
+    /**
+     * Splits speed into (numericStr, unitStr) for 2-line status bar icon rendering.
+     * Shared formatter used by both the notification icon and notification text.
+     */
+    fun formatSpeedSplit(bytes: Long, showInBits: Boolean = false): Pair<String, String> {
+        var b = if (bytes < 0) 0L else bytes
+        val unitSuffix = if (showInBits) "b/s" else "B/s"
+
+        if (showInBits) b *= 8
+
+        if (b < 1024) return Pair("0", if (showInBits) "Kb/s" else "KB/s")
+
+        val k = b / 1024.0
+        if (k < 9.95) return Pair(String.format(Locale.ENGLISH, "%.1f", k), "K$unitSuffix")
+        if (k < 999.5) return Pair(String.format(Locale.ENGLISH, "%.0f", k), "K$unitSuffix")
+
+        val m = k / 1024.0
+        if (m < 9.95) return Pair(String.format(Locale.ENGLISH, "%.1f", m), "M$unitSuffix")
+        if (m < 999.5) return Pair(String.format(Locale.ENGLISH, "%.0f", m), "M$unitSuffix")
+
+        val g = m / 1024.0
+        return Pair(String.format(Locale.ENGLISH, "%.1f", g), "G$unitSuffix")
     }
 
     fun formatBytes(bytes: Long, precision: Int = 1): String {

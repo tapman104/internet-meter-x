@@ -18,6 +18,11 @@ class SettingsManager(context: Context) {
         const val THEME_DARK = 0
         const val THEME_LIGHT = 1
         const val THEME_MATERIAL_YOU = 2
+
+        fun getTheme(context: Context): Int {
+            return context.getSharedPreferences("settings", Context.MODE_PRIVATE)
+                .getInt(KEY_APP_THEME, THEME_DARK)
+        }
     }
 
     var showInBits: Boolean

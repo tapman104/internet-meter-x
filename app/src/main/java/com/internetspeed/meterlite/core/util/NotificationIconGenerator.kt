@@ -3,10 +3,9 @@ package com.internetspeed.meterlite.core.util
 import android.content.Context
 import android.graphics.*
 import androidx.core.graphics.drawable.IconCompat
-import java.util.Locale
 import android.graphics.PorterDuff
 
-class NotificationIconGenerator(private val context: Context) {
+class NotificationIconGenerator(private val context: Context, private val trafficProvider: TrafficStatsProvider) {
 
     private val dp = context.resources.displayMetrics.density
     // Standard Android status bar icon size: 24dp
@@ -76,36 +75,6 @@ class NotificationIconGenerator(private val context: Context) {
         return IconCompat.createWithBitmap(bitmap)
     }
 
-    /**
-     * Accuracy: Splits speed into numeric and unit parts with better precision at low speeds.
-     * Prevents "0" display for speeds between 1-512 bytes.
-     */
-    private fun fmtSplit(bytes: Long, showInBits: Boolean): Pair<String, String> {
-        var b = if (bytes < 0) 0L else bytes
-        val unitSuffix = if (showInBits) "b/s" else "B/s"
-        
-        if (showInBits) b *= 8
-
-        if (b < 1024) return Pair("0", if (showInBits) "Kb/s" else "KB/s")
-        
-        val k = b / 1024.0
-        if (k < 9.95) {
-            // "1.5 K" is much more accurate than "2 K" or "1 K"
-            return Pair(String.format(Locale.ENGLISH, "%.1f", k), "K$unitSuffix")
-        }
-        if (k < 999.5) {
-            return Pair(String.format(Locale.ENGLISH, "%.0f", k), "K$unitSuffix")
-        }
-        
-        val m = k / 1024.0
-        if (m < 9.95) {
-            return Pair(String.format(Locale.ENGLISH, "%.1f", m), "M$unitSuffix")
-        }
-        if (m < 999.5) {
-            return Pair(String.format(Locale.ENGLISH, "%.0f", m), "M$unitSuffix")
-        }
-        
-        val g = m / 1024.0
-        return Pair(String.format(Locale.ENGLISH, "%.1f", g), "G$unitSuffix")
-    }
+    private fun fmtSplit(bytes: Long, showInBits: Boolean): Pair<String, String> =
+        trafficProvider.formatSpeedSplit(bytes, showInBits)
 }

@@ -33,6 +33,29 @@ android {
         }
     }
 
+    flavorDimensions "version"
+    productFlavors {
+        free {
+            dimension "version"
+            applicationIdSuffix ".free"
+            buildConfigField "boolean", "USE_FIREBASE", "false"
+        }
+        cl {
+            dimension "version"
+            applicationIdSuffix ".cl"
+            buildConfigField "boolean", "USE_FIREBASE", "false"
+        }
+        cd {
+            dimension "version"
+            applicationIdSuffix ".cd"
+            buildConfigField "boolean", "USE_FIREBASE", "false"
+        }
+        firebase {
+            dimension "version"
+            buildConfigField "boolean", "USE_FIREBASE", "true"
+        }
+    }
+
     buildTypes {
         release {
             signingConfig signingConfigs.release
@@ -49,6 +72,7 @@ android {
         jvmTarget = '1.8'
     }
     buildFeatures {
+        buildConfig true
         viewBinding true
     }
 }
@@ -74,7 +98,20 @@ dependencies {
     // Coroutines
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
 
+    // Firebase (only for firebase flavor)
+    firebaseImplementation platform('com.google.firebase:firebase-bom:33.0.0')
+    firebaseImplementation 'com.google.firebase:firebase-analytics'
+
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+}
+
+// Apply Google Services only when building a firebase variant.
+def isFirebaseBuild = gradle.startParameter.taskNames.any { task ->
+    task.toLowerCase().contains("firebase")
+}
+
+if (isFirebaseBuild) {
+    apply plugin: 'com.google.gms.google-services'
 }

@@ -27,6 +27,9 @@ class SpeedMeterApp : Application() {
     override fun onCreate() {
         super.onCreate()
         
+        // Initialize flavor-specific features (e.g., Firebase for firebase flavor)
+        FlavorInitializer.init(this)
+        
         // Apply theme preference globally on startup
         val settingsManager = SettingsManager(this)
         applyTheme(settingsManager.appTheme)
