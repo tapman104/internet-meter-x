@@ -60,8 +60,9 @@ jobs:
         run: |
           # Reliably extract versionName from defaultConfig block only
           VERSION_NAME=$(grep -m 1 'versionName' app/build.gradle | awk '{print $2}' | tr -d '"')
-          APK_SRC=app/build/outputs/apk/release/app-release.apk
-          APK_DST=app/build/outputs/apk/release/InternetMeterX-${VERSION_NAME}.apk
+          # Pick the firebase flavor as the primary release APK
+          APK_SRC=app/build/outputs/apk/firebase/release/app-firebase-release.apk
+          APK_DST=app/build/outputs/apk/firebase/release/InternetMeterX-${VERSION_NAME}.apk
           mv "$APK_SRC" "$APK_DST"
           echo "apk_path=${APK_DST}" >> $GITHUB_OUTPUT
           echo "version_name=${VERSION_NAME}" >> $GITHUB_OUTPUT
