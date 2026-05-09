@@ -34,7 +34,8 @@ captures/
 .cxx/
 
 # Gradle wrapper
-gradle-wrapper.jar
+# (already unignored at line 6)
+
 
 # Google services (may contain secrets)
 google-services.json
