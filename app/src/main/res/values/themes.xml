@@ -39,8 +39,8 @@
     </style>
 
     <!-- ═══════════════════════════════ MATERIAL YOU (Dynamic) ══════════════════════ -->
-    <!-- Base theme for Material You extending Theme.Material3.DynamicColors.DayNight -->
-    <style name="Theme_InternetSpeedMeterLite_MaterialYou" parent="Theme.Material3.DynamicColors.DayNight.NoActionBar">
+    <!-- Use this for all flavors -->
+    <style name="Theme_InternetSpeedMeterLite_MaterialYou" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="android:windowBackground">@color/background</item>
         <item name="android:statusBarColor">@color/background</item>
         <item name="android:navigationBarColor">@color/background</item>
