@@ -107,7 +107,7 @@
                 <View style="@style/SettingsDivider" />
 
                 <include
-                    android:id="@+id/row_theme"
+                    android:id="@+id/row_app_theme"
                     layout="@layout/layout_settings_row_value" />
 
                 <View style="@style/SettingsDivider" />

@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.internetspeed.meterlite.core.service.SpeedMeterService
 import com.internetspeed.meterlite.data.entity.DailyUsage
 import com.internetspeed.meterlite.databinding.ActivityMainBinding
+import com.internetspeed.meterlite.R
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -26,14 +27,19 @@ class MainActivity : AppCompatActivity() {
     private lateinit var historyAdapter: HistoryAdapter
     private var fullHistoryItems: List<com.internetspeed.meterlite.data.model.HistoryItem> = emptyList()
     private var isExpanded = false
+    private var currentTheme: Int = -1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        settingsManager = com.internetspeed.meterlite.core.util.SettingsManager(this)
+        currentTheme = settingsManager.appTheme
+        applyAppTheme(currentTheme)
+        
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         powerManager = getSystemService(POWER_SERVICE) as android.os.PowerManager
-        settingsManager = com.internetspeed.meterlite.core.util.SettingsManager(this)
 
         setupHistoryList()
         displayVersion()
@@ -57,9 +63,31 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        
+        // Check if theme changed
+        if (currentTheme != settingsManager.appTheme) {
+            recreate()
+            return
+        }
+
         // Refresh UI in case settings changed
         historyAdapter.setPrecision(settingsManager.dataPrecision)
         updateHistoryDisplay()
+    }
+
+    /** Switches the Activity theme based on the stored preference. */
+    private fun applyAppTheme(theme: Int) {
+        when (theme) {
+            com.internetspeed.meterlite.core.util.SettingsManager.THEME_LIGHT -> 
+                setTheme(R.style.Theme_InternetSpeedMeterLite_Light)
+            com.internetspeed.meterlite.core.util.SettingsManager.THEME_MATERIAL_YOU -> {
+                setTheme(R.style.Theme_InternetSpeedMeterLite_MaterialYou)
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                    com.google.android.material.color.DynamicColors.applyToActivityIfAvailable(this)
+                }
+            }
+            else -> setTheme(R.style.Theme_InternetSpeedMeterLite) // DARK (default)
+        }
     }
 
     private fun setupHistoryList() {

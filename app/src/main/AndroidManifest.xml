@@ -16,7 +16,7 @@
         android:label="@string/app_name"
         android:roundIcon="@drawable/ic_launcher_premium"
         android:supportsRtl="true"
-        android:theme="@style/Theme.InternetSpeedMeterLite">
+        android:theme="@style/Theme_InternetSpeedMeterLite">
 
         <activity
             android:name=".ui.MainActivity"
@@ -31,7 +31,7 @@
             android:name=".ui.SettingsActivity"
             android:exported="false"
             android:parentActivityName=".ui.MainActivity"
-            android:theme="@style/Theme.InternetMeterX.Settings" />
+            android:theme="@style/Theme_InternetMeterX_Settings" />
 
 
         <service

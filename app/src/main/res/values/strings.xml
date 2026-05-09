@@ -41,6 +41,8 @@
     <string name="service_ticker">Internet Meter X running</string>
     <string name="service_initializing">Initializing...</string>
     <string name="service_usage_summary">WiFi: %1$s  •  Mobile: %2$s</string>
+
+    <!-- Theme Settings Strings -->
     <string name="theme_title">App Theme</string>
     <string name="theme_dialog_title">Choose Theme</string>
     <string name="theme_dark">Dark</string>

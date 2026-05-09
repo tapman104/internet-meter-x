@@ -40,10 +40,12 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        
         // Apply theme before inflation so colors + backgrounds are correct
         settingsManager = SettingsManager(this)
         applyAppTheme(settingsManager.appTheme)
-        super.onCreate(savedInstanceState)
+        
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -77,7 +79,7 @@ class SettingsActivity : AppCompatActivity() {
 
         // General Section
         setupToggleRow(binding.rowBits.root, "Show speed in bits", "Display Mbps instead of MB/s", R.drawable.ic_bits, getColor(R.color.settings_icon_purple_bg))
-        setupValueRow(binding.rowTheme.root, getString(R.string.theme_title), "Change app appearance", R.drawable.ic_info, getColor(R.color.settings_icon_blue_bg))
+        setupValueRow(binding.rowAppTheme.root, getString(R.string.theme_title), "Change app appearance", R.drawable.ic_info, getColor(R.color.settings_icon_blue_bg))
         setupValueRow(binding.rowPrecision.root, "Data unit precision", "Number of decimal places", R.drawable.ic_precision, getColor(R.color.settings_icon_purple_bg))
 
         // About Section
@@ -179,7 +181,7 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         // Theme
-        LayoutSettingsRowValueBinding.bind(binding.rowTheme.root).apply {
+        binding.rowAppTheme.apply {
             tvValue.text = themeLabel(settingsManager.appTheme)
             root.setOnClickListener {
                 val options = arrayOf(
