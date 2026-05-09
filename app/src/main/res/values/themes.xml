@@ -1,4 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- ═══════════════════════════════ DARK (default) ═══════════════════════════════ -->
     <style name="Theme.InternetSpeedMeterLite" parent="Theme.Material3.Dark.NoActionBar">
         <item name="android:windowBackground">@color/background</item>
         <item name="android:statusBarColor">@color/background</item>
@@ -14,4 +16,43 @@
         <item name="android:statusBarColor">@color/settings_bg</item>
         <item name="android:navigationBarColor">@color/settings_bg</item>
     </style>
+
+    <!-- ═══════════════════════════════ LIGHT ═══════════════════════════════════════ -->
+    <style name="Theme.InternetSpeedMeterLite.Light" parent="Theme.Material3.Light.NoActionBar">
+        <item name="android:windowBackground">@color/light_background</item>
+        <item name="android:statusBarColor">@color/light_background</item>
+        <item name="android:navigationBarColor">@color/light_background</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorSurface">@color/light_surface</item>
+        <item name="colorOnSurface">@color/light_on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/light_on_surface_variant</item>
+    </style>
+
+    <style name="Theme.InternetMeterX.Settings.Light" parent="Theme.InternetSpeedMeterLite.Light">
+        <item name="android:windowBackground">@color/light_settings_bg</item>
+        <item name="android:statusBarColor">@color/light_settings_bg</item>
+        <item name="android:navigationBarColor">@color/light_settings_bg</item>
+    </style>
+
+    <!-- ═══════════════════════════════ MATERIAL YOU (Dynamic) ══════════════════════ -->
+    <!-- Dynamic colors are applied programmatically via DynamicColors.applyToActivity() -->
+    <!-- This style is the base; the activity calls DynamicColors at runtime on API 31+  -->
+    <style name="Theme.InternetSpeedMeterLite.MaterialYou" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:windowBackground">@color/background</item>
+        <item name="android:statusBarColor">@color/background</item>
+        <item name="android:navigationBarColor">@color/background</item>
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorSurface">@color/surface</item>
+        <item name="colorOnSurface">@color/on_surface</item>
+        <item name="colorOnSurfaceVariant">@color/on_surface_variant</item>
+    </style>
+
+    <style name="Theme.InternetMeterX.Settings.MaterialYou" parent="Theme.InternetSpeedMeterLite.MaterialYou">
+        <item name="android:windowBackground">@color/settings_bg</item>
+        <item name="android:statusBarColor">@color/settings_bg</item>
+        <item name="android:navigationBarColor">@color/settings_bg</item>
+    </style>
+
 </resources>

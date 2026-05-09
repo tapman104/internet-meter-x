@@ -1,5 +1,6 @@
 package com.internetspeed.meterlite.ui
 
+import android.content.DialogInterface
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
@@ -39,14 +40,30 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Apply theme before inflation so colors + backgrounds are correct
+        settingsManager = SettingsManager(this)
+        applyAppTheme(settingsManager.appTheme)
         super.onCreate(savedInstanceState)
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        settingsManager = SettingsManager(this)
-
         setupUI()
         bindSettings()
+    }
+
+    /** Switches the Activity theme based on the stored preference. */
+    private fun applyAppTheme(theme: Int) {
+        when (theme) {
+            SettingsManager.THEME_LIGHT -> setTheme(R.style.Theme_InternetMeterX_Settings_Light)
+            SettingsManager.THEME_MATERIAL_YOU -> {
+                setTheme(R.style.Theme_InternetMeterX_Settings_MaterialYou)
+                // Apply device wallpaper colors on Android 12+ (API 31+)
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                    com.google.android.material.color.DynamicColors.applyToActivityIfAvailable(this)
+                }
+            }
+            else -> setTheme(R.style.Theme_InternetMeterX_Settings) // DARK (default)
+        }
     }
 
     private fun setupUI() {
@@ -60,6 +77,7 @@ class SettingsActivity : AppCompatActivity() {
 
         // General Section
         setupToggleRow(binding.rowBits.root, "Show speed in bits", "Display Mbps instead of MB/s", R.drawable.ic_bits, getColor(R.color.settings_icon_purple_bg))
+        setupValueRow(binding.rowTheme.root, getString(R.string.theme_title), "Change app appearance", R.drawable.ic_info, getColor(R.color.settings_icon_blue_bg))
         setupValueRow(binding.rowPrecision.root, "Data unit precision", "Number of decimal places", R.drawable.ic_precision, getColor(R.color.settings_icon_purple_bg))
 
         // About Section
@@ -160,6 +178,31 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
+        // Theme
+        LayoutSettingsRowValueBinding.bind(binding.rowTheme.root).apply {
+            tvValue.text = themeLabel(settingsManager.appTheme)
+            root.setOnClickListener {
+                val options = arrayOf(
+                    getString(R.string.theme_dark),
+                    getString(R.string.theme_light),
+                    getString(R.string.theme_material_you)
+                )
+                var selected = settingsManager.appTheme
+                com.google.android.material.dialog.MaterialAlertDialogBuilder(this@SettingsActivity)
+                    .setTitle(R.string.theme_dialog_title)
+                    .setSingleChoiceItems(options, selected) { _: DialogInterface, which: Int -> selected = which }
+                    .setPositiveButton(android.R.string.ok) { _: DialogInterface, _: Int ->
+                        if (selected != settingsManager.appTheme) {
+                            settingsManager.appTheme = selected
+                            // Recreate so the new theme takes effect immediately
+                            recreate()
+                        }
+                    }
+                    .setNegativeButton(android.R.string.cancel, null)
+                    .show()
+            }
+        }
+
         // Version
         LayoutSettingsRowValueBinding.bind(binding.rowVersion.root).apply {
             try {
@@ -227,6 +270,12 @@ class SettingsActivity : AppCompatActivity() {
                 .setNegativeButton(R.string.reset_cancel, null)
                 .show()
         }
+    }
+
+    private fun themeLabel(theme: Int): String = when (theme) {
+        SettingsManager.THEME_LIGHT -> getString(R.string.theme_light)
+        SettingsManager.THEME_MATERIAL_YOU -> getString(R.string.theme_material_you)
+        else -> getString(R.string.theme_dark)
     }
 
     private fun openUrl(url: String) {

@@ -13,6 +13,11 @@ class SettingsManager(context: Context) {
         const val KEY_DATA_PRECISION = "data_precision"
         const val KEY_BG_ACTIVITY = "bg_activity"
         const val KEY_USAGE_ALERT = "usage_alert"
+        const val KEY_APP_THEME = "app_theme"
+
+        const val THEME_DARK = 0
+        const val THEME_LIGHT = 1
+        const val THEME_MATERIAL_YOU = 2
     }
 
     var showInBits: Boolean
@@ -39,4 +44,9 @@ class SettingsManager(context: Context) {
     var dailyUsageAlert: String
         get() = prefs.getString(KEY_USAGE_ALERT, "Off") ?: "Off"
         set(value) = prefs.edit().putString(KEY_USAGE_ALERT, value).apply()
+
+    /** 0=Dark, 1=Light, 2=Material You */
+    var appTheme: Int
+        get() = prefs.getInt(KEY_APP_THEME, THEME_DARK)
+        set(value) = prefs.edit().putInt(KEY_APP_THEME, value).apply()
 }

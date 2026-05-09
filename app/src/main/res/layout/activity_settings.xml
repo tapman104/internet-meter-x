@@ -107,6 +107,12 @@
                 <View style="@style/SettingsDivider" />
 
                 <include
+                    android:id="@+id/row_theme"
+                    layout="@layout/layout_settings_row_value" />
+
+                <View style="@style/SettingsDivider" />
+
+                <include
                     android:id="@+id/row_precision"
                     layout="@layout/layout_settings_row_value" />
 
