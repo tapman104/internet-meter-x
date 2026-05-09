@@ -24,7 +24,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var powerManager: android.os.PowerManager
     private lateinit var settingsManager: com.internetspeed.meterlite.core.util.SettingsManager
     private lateinit var historyAdapter: HistoryAdapter
-    private var fullHistory: List<DailyUsage> = emptyList()
+    private var fullHistoryItems: List<com.internetspeed.meterlite.data.model.HistoryItem> = emptyList()
     private var isExpanded = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -60,8 +60,6 @@ class MainActivity : AppCompatActivity() {
         // Refresh UI in case settings changed
         historyAdapter.setPrecision(settingsManager.dataPrecision)
         updateHistoryDisplay()
-        // Flows in observeUsage/observeHistory will naturally pick up data changes,
-        // and precision is checked inside their collectors.
     }
 
     private fun setupHistoryList() {
@@ -74,8 +72,8 @@ class MainActivity : AppCompatActivity() {
     private fun observeHistory() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.history.collectLatest { history ->
-                    fullHistory = history
+                viewModel.historyItems.collectLatest { history ->
+                    fullHistoryItems = history
                     updateHistoryDisplay()
                 }
             }
@@ -83,17 +81,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateHistoryDisplay() {
-        if (fullHistory.isEmpty()) {
+        if (fullHistoryItems.isEmpty()) {
             binding.tvNoHistory.visibility = View.VISIBLE
             binding.btnViewMore.visibility = View.GONE
             historyAdapter.submitList(emptyList())
         } else {
             binding.tvNoHistory.visibility = View.GONE
-            if (isExpanded || fullHistory.size <= 7) {
-                historyAdapter.submitList(fullHistory)
+            // We want to show a reasonable amount initially, but everything when expanded
+            // The user said "History goes back as far as data exists", so we ensure full list is available
+            if (isExpanded || fullHistoryItems.size <= 10) {
+                historyAdapter.submitList(fullHistoryItems)
                 binding.btnViewMore.visibility = View.GONE
             } else {
-                historyAdapter.submitList(fullHistory.take(7))
+                historyAdapter.submitList(fullHistoryItems.take(10))
                 binding.btnViewMore.visibility = View.VISIBLE
             }
         }
@@ -106,9 +106,9 @@ class MainActivity : AppCompatActivity() {
             val contentHeight = binding.contentLayout.height
             val scrollViewHeight = binding.scrollView.height
             
-            if (contentHeight > scrollViewHeight && !isExpanded && fullHistory.size > 7) {
+            if (contentHeight > scrollViewHeight && !isExpanded && fullHistoryItems.size > 10) {
                 binding.btnViewMore.visibility = View.VISIBLE
-            } else if (fullHistory.size <= 7) {
+            } else if (fullHistoryItems.size <= 10) {
                 binding.btnViewMore.visibility = View.GONE
             }
         }

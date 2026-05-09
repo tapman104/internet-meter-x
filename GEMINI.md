@@ -20,13 +20,17 @@ This file documents the contributions of **Antigravity (Gemini)** during the sta
 ## 🧠 Technical Deep-Dive
 
 ### 1. Speed Accuracy (Adaptive EMA)
-The speed meter uses an **Adaptive Exponential Moving Average**. 
+
+The speed meter uses an **Adaptive Exponential Moving Average**.
+
 - **Burst Reaction**: Alpha boosts to 0.9 for instant response to traffic spikes.
 - **Stability**: Alpha relaxes to ~0.7 for steady background traffic.
 - **Independent Snapping**: Download and Upload counters are polled independently; one direction will snap to zero after 2 idle cycles even if the other is active.
 
 ### 2. Battery Optimization (Tiered Polling)
+
 The `SpeedMeterService` is designed for zero-impact background operation:
+
 - **Interactive**: 1s poll.
 - **Idle (interactive)**: 3s poll.
 - **Screen Off**: 15s poll.
@@ -34,13 +38,15 @@ The `SpeedMeterService` is designed for zero-impact background operation:
 - **Throttling**: Notification updates are skipped entirely if the screen is off or if the speed change is below the significance threshold (128 bytes/s).
 
 ### 3. Data Persistence
+
 - **Engine**: Room SQLite.
-- **Indefinite Storage**: The `LIMIT 30` constraint has been removed. 
+- **Indefinite Storage**: The `LIMIT 30` constraint has been removed.
 - **Flushing**: Memory stats are flushed to disk every 10 seconds or on date change to minimize Flash I/O while preventing data loss.
 
 ---
 
 ## 💡 Prompting Tips for Gemini
+
 - **Speed Logic**: Refer to `TrafficStatsProvider.kt`. It contains the core math for bits/bytes and EMA smoothing.
 - **History Display**: Refer to `UsageRepository.kt` and `UsageDao.kt`. Note that we return `List<DailyUsage>` directly; for very large datasets (>5 years), consider upgrading to Paging 3.
 - **Identity**: The app identity is `com.meter.x`, but the internal package structure remains `com.internetspeed.meterlite`.
@@ -48,4 +54,5 @@ The `SpeedMeterService` is designed for zero-impact background operation:
 ---
 
 ## 🚀 Status
+
 The project is currently in **Production-Ready** state (v1.3.0). All accuracy and battery metrics have been audited and passed.

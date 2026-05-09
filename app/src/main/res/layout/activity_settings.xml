@@ -162,6 +162,30 @@
 
             </LinearLayout>
 
+            <!-- Data Section -->
+            <TextView
+                style="@style/SettingsSectionLabel"
+                android:layout_marginTop="24dp"
+                android:text="DATA" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_settings_card"
+                android:orientation="vertical">
+
+                <include
+                    android:id="@+id/row_export_csv"
+                    layout="@layout/layout_settings_row_value" />
+
+                <View style="@style/SettingsDivider" />
+
+                <include
+                    android:id="@+id/row_export_json"
+                    layout="@layout/layout_settings_row_value" />
+
+            </LinearLayout>
+
             <!-- Maintenance Section -->
             <TextView
                 style="@style/SettingsSectionLabel"

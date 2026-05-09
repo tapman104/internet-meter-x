@@ -17,6 +17,7 @@ import com.internetspeed.meterlite.core.util.NotificationIconGenerator
 import com.internetspeed.meterlite.core.util.Speed
 import com.internetspeed.meterlite.core.util.TrafficStatsProvider
 import com.internetspeed.meterlite.data.model.LiveUsage
+import com.internetspeed.meterlite.R
 import com.internetspeed.meterlite.ui.MainActivity
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
@@ -118,7 +119,7 @@ class SpeedMeterService : Service() {
         currentEpochDay = localEpochDay()
 
         val initialIcon = iconGenerator.createSpeedIcon(0, 0)
-        val initialNotif = createNotification("Initializing...", "WiFi: 0 B  •  Mobile: 0 B", "Internet Meter X running", initialIcon)
+        val initialNotif = createNotification(getString(R.string.service_initializing), getString(R.string.service_usage_summary, "0 B", "0 B"), getString(R.string.service_ticker), initialIcon)
         
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             startForeground(NOTIFICATION_ID, initialNotif, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
@@ -340,8 +341,8 @@ class SpeedMeterService : Service() {
         val upStr = trafficProvider.formatSpeed(speedUp, cachedShowInBits, cachedPrecision)
 
         val title = "↓ $downStr   ↑ $upStr"
-        val content = "WiFi: $resolvedWifiStr  •  Mobile: $resolvedMobileStr"
-        val ticker = "↓ $downStr  ↑ $upStr"
+        val content = getString(R.string.service_usage_summary, resolvedWifiStr, resolvedMobileStr)
+        val ticker = getString(R.string.service_ticker)
 
         val currentIconLabel = "$downStr|$cachedShowInBits"
         val speedIcon = if (currentIconLabel == lastIconLabel && lastIcon != null) {

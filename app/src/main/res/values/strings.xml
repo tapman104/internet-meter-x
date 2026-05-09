@@ -16,4 +16,29 @@
     <string name="view_more">View More</string>
     <string name="no_history">No history available yet</string>
     <string name="no_data">No data available</string>
+    <string name="settings_export_csv">Export as CSV</string>
+    <string name="settings_export_json">Export as JSON</string>
+    <string name="settings_export_desc">Save usage history to a file</string>
+
+    <!-- New Strings for Finalization -->
+    <string name="export_success_csv">CSV exported successfully</string>
+    <string name="export_success_json">JSON exported successfully</string>
+    <string name="export_failed">Export failed: %s</string>
+    <string name="priority_high">High</string>
+    <string name="priority_normal">Normal</string>
+    <string name="priority_restart_msg">Restart app to apply priority change</string>
+    <string name="alert_title">Daily Usage Alert</string>
+    <string name="precision_title">Data Unit Precision</string>
+    <string name="precision_1_decimal">1 decimal</string>
+    <string name="precision_2_decimal">2 decimal</string>
+    <string name="changelog_coming_soon">Changelog coming soon</string>
+    <string name="link_error">Could not open link</string>
+    <string name="reset_dialog_title">Reset all data?</string>
+    <string name="reset_dialog_msg">This will clear all usage history and reset settings to default. This cannot be undone.</string>
+    <string name="reset_confirm">Reset</string>
+    <string name="reset_cancel">Cancel</string>
+    <string name="reset_success">All data reset</string>
+    <string name="service_ticker">Internet Meter X running</string>
+    <string name="service_initializing">Initializing...</string>
+    <string name="service_usage_summary">WiFi: %1$s  •  Mobile: %2$s</string>
 </resources>

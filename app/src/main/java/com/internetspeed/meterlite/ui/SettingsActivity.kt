@@ -17,11 +17,26 @@ import androidx.lifecycle.lifecycleScope
 import com.internetspeed.meterlite.SpeedMeterApp
 import kotlinx.coroutines.launch
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import com.internetspeed.meterlite.data.entity.DailyUsage
+import kotlinx.coroutines.flow.first
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.BufferedWriter
+import java.io.OutputStreamWriter
 
 class SettingsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivitySettingsBinding
     private lateinit var settingsManager: SettingsManager
+
+    private val createCsvLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        uri?.let { exportDataToCsv(it) }
+    }
+
+    private val createJsonLauncher = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        uri?.let { exportDataToJson(it) }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,6 +71,10 @@ class SettingsActivity : AppCompatActivity() {
         setupValueRow(binding.rowCoffee.root, "Buy Me a Coffee", "Support the project with a coffee", R.drawable.ic_info, getColor(R.color.settings_icon_orange_bg))
         setupValueRow(binding.rowPaypal.root, "PayPal", "Donate via PayPal", R.drawable.ic_info, getColor(R.color.settings_icon_orange_bg))
 
+        // Data Section
+        setupValueRow(binding.rowExportCsv.root, getString(R.string.settings_export_csv), getString(R.string.settings_export_desc), R.drawable.ic_export, getColor(R.color.settings_icon_amber_bg))
+        setupValueRow(binding.rowExportJson.root, getString(R.string.settings_export_json), getString(R.string.settings_export_desc), R.drawable.ic_export, getColor(R.color.settings_icon_amber_bg))
+
         // Maintenance Section
         setupValueRow(binding.rowReset.root, "Reset all data", "Clear all usage history and settings", R.drawable.ic_reset, getColor(R.color.settings_red_bg))
         
@@ -87,12 +106,12 @@ class SettingsActivity : AppCompatActivity() {
     private fun bindSettings() {
         // Priority
         LayoutSettingsRowValueBinding.bind(binding.rowPriority.root).apply {
-            tvValue.text = if (settingsManager.notificationPriority == 1) "High" else "Normal"
+            tvValue.text = if (settingsManager.notificationPriority == 1) getString(R.string.priority_high) else getString(R.string.priority_normal)
             root.setOnClickListener {
                 val newValue = if (settingsManager.notificationPriority == 1) 0 else 1
                 settingsManager.notificationPriority = newValue
-                tvValue.text = if (newValue == 1) "High" else "Normal"
-                Toast.makeText(this@SettingsActivity, "Restart app to apply priority change", Toast.LENGTH_SHORT).show()
+                tvValue.text = if (newValue == 1) getString(R.string.priority_high) else getString(R.string.priority_normal)
+                Toast.makeText(this@SettingsActivity, getString(R.string.priority_restart_msg), Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -102,7 +121,7 @@ class SettingsActivity : AppCompatActivity() {
             root.setOnClickListener {
                 val options = arrayOf("Off", "500 MB", "1 GB", "2 GB", "5 GB")
                 com.google.android.material.dialog.MaterialAlertDialogBuilder(this@SettingsActivity)
-                    .setTitle("Daily Usage Alert")
+                    .setTitle(R.string.alert_title)
                     .setItems(options) { _, which ->
                         val newValue = options[which]
                         settingsManager.dailyUsageAlert = newValue
@@ -127,11 +146,11 @@ class SettingsActivity : AppCompatActivity() {
 
         // Precision
         LayoutSettingsRowValueBinding.bind(binding.rowPrecision.root).apply {
-            val labels = arrayOf("1 decimal", "2 decimal")
+            val labels = arrayOf(getString(R.string.precision_1_decimal), getString(R.string.precision_2_decimal))
             tvValue.text = labels[settingsManager.dataPrecision - 1]
             root.setOnClickListener {
                 com.google.android.material.dialog.MaterialAlertDialogBuilder(this@SettingsActivity)
-                    .setTitle("Data Unit Precision")
+                    .setTitle(R.string.precision_title)
                     .setItems(labels) { _, which ->
                         val newValue = which + 1
                         settingsManager.dataPrecision = newValue
@@ -158,9 +177,7 @@ class SettingsActivity : AppCompatActivity() {
 
         // Links
         binding.rowChangelog.root.setOnClickListener {
-            // Internal or external link? User didn't specify, I'll just show a toast or a simple dialog for now
-            // Actually, usually a changelog is a file or a web link.
-            Toast.makeText(this, "Changelog coming soon", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.changelog_coming_soon), Toast.LENGTH_SHORT).show()
         }
 
         binding.rowGithub.root.setOnClickListener {
@@ -175,12 +192,21 @@ class SettingsActivity : AppCompatActivity() {
             openUrl("https://paypal.me/tapmanxce")
         }
 
+        // Export
+        binding.rowExportCsv.root.setOnClickListener {
+            createCsvLauncher.launch("internet_usage_${System.currentTimeMillis()}.csv")
+        }
+
+        binding.rowExportJson.root.setOnClickListener {
+            createJsonLauncher.launch("internet_usage_${System.currentTimeMillis()}.json")
+        }
+
         // Reset
         binding.rowReset.root.setOnClickListener {
             com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                .setTitle("Reset all data?")
-                .setMessage("This will clear all usage history and reset settings to default. This cannot be undone.")
-                .setPositiveButton("Reset") { _, _ ->
+                .setTitle(R.string.reset_dialog_title)
+                .setMessage(R.string.reset_dialog_msg)
+                .setPositiveButton(R.string.reset_confirm) { _, _ ->
                     lifecycleScope.launch {
                         (application as SpeedMeterApp).usageRepository.clearAllData()
                         
@@ -192,13 +218,13 @@ class SettingsActivity : AppCompatActivity() {
                         settingsManager.backgroundActivity = true
                         settingsManager.dailyUsageAlert = "Off"
                         
-                        Toast.makeText(this@SettingsActivity, "All data reset", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@SettingsActivity, getString(R.string.reset_success), Toast.LENGTH_SHORT).show()
                         
                         // Refresh UI
                         bindSettings()
                     }
                 }
-                .setNegativeButton("Cancel", null)
+                .setNegativeButton(R.string.reset_cancel, null)
                 .show()
         }
     }
@@ -208,7 +234,57 @@ class SettingsActivity : AppCompatActivity() {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
             startActivity(intent)
         } catch (e: Exception) {
-            Toast.makeText(this, "Could not open link", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.link_error), Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun exportDataToCsv(uri: Uri) {
+        lifecycleScope.launch {
+            try {
+                val history = (application as SpeedMeterApp).usageRepository.getAllUsageHistory().first()
+                contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    BufferedWriter(OutputStreamWriter(outputStream)).use { writer ->
+                        writer.write("Date,Mobile Rx (Bytes),Mobile Tx (Bytes),Mobile Total (Bytes),WiFi Rx (Bytes),WiFi Tx (Bytes),WiFi Total (Bytes),Daily Total (Bytes)\n")
+                        history.forEach { usage ->
+                            writer.write("${usage.date},${usage.mobileRx},${usage.mobileTx},${usage.totalMobile},${usage.wifiRx},${usage.wifiTx},${usage.totalWifi},${usage.total}\n")
+                        }
+                    }
+                }
+                Toast.makeText(this@SettingsActivity, getString(R.string.export_success_csv), Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(this@SettingsActivity, getString(R.string.export_failed, e.message), Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun exportDataToJson(uri: Uri) {
+        lifecycleScope.launch {
+            try {
+                val history = (application as SpeedMeterApp).usageRepository.getAllUsageHistory().first()
+                val jsonArray = JSONArray()
+                history.forEach { usage ->
+                    val jsonObj = JSONObject().apply {
+                        put("date", usage.date)
+                        put("mobileRx", usage.mobileRx)
+                        put("mobileTx", usage.mobileTx)
+                        put("wifiRx", usage.wifiRx)
+                        put("wifiTx", usage.wifiTx)
+                        put("totalMobile", usage.totalMobile)
+                        put("totalWifi", usage.totalWifi)
+                        put("total", usage.total)
+                    }
+                    jsonArray.put(jsonObj)
+                }
+
+                contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    BufferedWriter(OutputStreamWriter(outputStream)).use { writer ->
+                        writer.write(jsonArray.toString(4))
+                    }
+                }
+                Toast.makeText(this@SettingsActivity, getString(R.string.export_success_json), Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(this@SettingsActivity, getString(R.string.export_failed, e.message), Toast.LENGTH_SHORT).show()
+            }
         }
     }
 }
