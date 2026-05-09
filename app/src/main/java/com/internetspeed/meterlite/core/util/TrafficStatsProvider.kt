@@ -136,15 +136,15 @@ class TrafficStatsProvider {
         if (b < 1000) return "$b $unit"
         
         val kb = b / 1024.0
-        if (kb < 9.95) return formatDecimal(kb, precision) + " K$unit"
-        if (kb < 999.5) return kb.roundToLong().toString() + " K$unit"
+        if (kb < 9.95) return formatDecimal(kb, precision) + "K$unit"
+        if (kb < 999.5) return kb.roundToLong().toString() + "K$unit"
         
         val mb = kb / 1024.0
-        if (mb < 9.95) return formatDecimal(mb, precision) + " M$unit"
-        if (mb < 999.5) return mb.roundToLong().toString() + " M$unit"
+        if (mb < 9.95) return formatDecimal(mb, precision) + "M$unit"
+        if (mb < 999.5) return mb.roundToLong().toString() + "M$unit"
         
         val gb = mb / 1024.0
-        return formatDecimal(gb, precision) + " G$unit"
+        return formatDecimal(gb, precision) + "G$unit"
     }
 
     /**
@@ -157,7 +157,7 @@ class TrafficStatsProvider {
 
         if (showInBits) b *= 8
 
-        if (b < 1024) return Pair("0", if (showInBits) "Kb/s" else "KB/s")
+        if (b < 1000) return Pair(b.toString(), unitSuffix)
 
         val k = b / 1024.0
         if (k < 9.95) return Pair(String.format(Locale.ENGLISH, "%.1f", k), "K$unitSuffix")

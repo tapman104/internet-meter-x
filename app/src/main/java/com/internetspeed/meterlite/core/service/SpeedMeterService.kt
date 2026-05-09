@@ -312,7 +312,7 @@ class SpeedMeterService : Service() {
         if (last == -1L) return true // Always update on the first poll to replace "Initializing..."
         if (current == last) return false
         if ((current == 0L) != (last == 0L)) return true
-        if (abs(current - last) < 128) return false // Lowered from 512 for better responsiveness at low speeds
+        if (abs(current - last) < 16) return false // Lowered from 128 for better responsiveness at low speeds
         
         val percentChange = if (last > 0) abs(current - last).toDouble() / last else 1.0
         return percentChange > 0.1 || abs(current - last) > 1024 // Lowered from 2048

@@ -104,7 +104,16 @@ class MainActivity : AppCompatActivity() {
 
     /** Configures system bars for light/dark content. Called after setContentView(). */
     private fun applySystemBars(theme: Int) {
-        if (theme == SettingsManager.THEME_LIGHT) {
+        val isLightMode = when (theme) {
+            SettingsManager.THEME_LIGHT -> true
+            SettingsManager.THEME_MATERIAL_YOU -> {
+                val nightModeFlags = resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
+                nightModeFlags == android.content.res.Configuration.UI_MODE_NIGHT_NO
+            }
+            else -> false
+        }
+
+        if (isLightMode) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 window.insetsController?.setSystemBarsAppearance(
                     WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
@@ -112,9 +121,20 @@ class MainActivity : AppCompatActivity() {
                     WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
                             WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
                 )
+            } else {
+                @Suppress("DEPRECATION")
+                var flags = window.decorView.systemUiVisibility
+                flags = flags or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    flags = flags or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
+                }
+                window.decorView.systemUiVisibility = flags
             }
-            window.statusBarColor = getColor(R.color.light_surface)
-            window.navigationBarColor = getColor(R.color.light_surface)
+
+            if (theme == SettingsManager.THEME_LIGHT) {
+                window.statusBarColor = getColor(R.color.light_surface)
+                window.navigationBarColor = getColor(R.color.light_surface)
+            }
         }
     }
 

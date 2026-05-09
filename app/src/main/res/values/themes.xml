@@ -41,15 +41,10 @@
     <!-- ═══════════════════════════════ MATERIAL YOU (Dynamic) ══════════════════════ -->
     <!-- Use this for all flavors -->
     <style name="Theme_InternetSpeedMeterLite_MaterialYou" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="android:windowBackground">@color/background</item>
-        <item name="android:statusBarColor">@color/background</item>
-        <item name="android:navigationBarColor">@color/background</item>
+        <!-- Let Material 3 and Dynamic Colors handle background and system bars -->
     </style>
 
     <style name="Theme_InternetMeterX_Settings_MaterialYou" parent="Theme_InternetSpeedMeterLite_MaterialYou">
-        <item name="android:windowBackground">@color/settings_bg</item>
-        <item name="android:statusBarColor">@color/settings_bg</item>
-        <item name="android:navigationBarColor">@color/settings_bg</item>
     </style>
 
 </resources>
