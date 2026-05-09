@@ -139,29 +139,18 @@ class SpeedMeterService : Service() {
         
         usageObservationJob = serviceScope.launch {
             repository.getTodayUsageFlow().collectLatest { usage ->
-                if (usage != null) {
-                    // If DB value is significantly lower than current, it means a reset occurred
-                    if (usage.totalWifi < todayWifi - 102400) { // 100KB buffer
-                        todayWifi = usage.totalWifi
-                    } else {
-                        todayWifi = maxOf(todayWifi, usage.totalWifi)
-                    }
+                if (!isSynced) {
+                    // First sync: trust DB completely, reset pending deltas
+                    // that accumulated before sync arrived
+                    todayWifi = usage?.totalWifi ?: 0L
+                    todayMobile = usage?.totalMobile ?: 0L
+                    pendingWifiRx = 0; pendingWifiTx = 0
+                    pendingMobileRx = 0; pendingMobileTx = 0
+                    isSynced = true
                     
-                    if (usage.totalMobile < todayMobile - 102400) {
-                        todayMobile = usage.totalMobile
-                    } else {
-                        todayMobile = maxOf(todayMobile, usage.totalMobile)
-                    }
-                } else {
-                    // Explicit reset: DB is empty
-                    todayWifi = 0
-                    todayMobile = 0
+                    // Trigger first UI update now that we're synced
+                    updateLiveUsageFlow()
                 }
-                isSynced = true
-                updateLiveUsageFlow()
-                // Read .value once so down and up come from the same Speed instance.
-                val speed = (application as SpeedMeterApp).speedFlow.value
-                updateNotificationIfNeeded(speed.down, speed.up)
             }
         }
     }

@@ -1,0 +1,82 @@
+name: Build & Release APK
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'          # e.g. v1.3.1, v2.0.0
+
+  # Allow manual trigger from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Signed Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Source ─────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Java ───────────────────────────────────────────────────────────
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      # ── 3. Signing credentials ────────────────────────────────────────────
+      # Decode the base64-encoded keystore stored in Secrets and write it to
+      # the location the build.gradle expects: app/release.jks
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/release.jks
+
+      # Recreate keystore.properties so Gradle can find it
+      - name: Write keystore.properties
+        run: |
+          cat > keystore.properties <<EOF
+          storeFile=release.jks
+          storePassword=${{ secrets.STORE_PASSWORD }}
+          keyAlias=${{ secrets.KEY_ALIAS }}
+          keyPassword=${{ secrets.KEY_PASSWORD }}
+          EOF
+
+      # ── 4. Build ──────────────────────────────────────────────────────────
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build release APK
+        run: ./gradlew assembleRelease --no-daemon --stacktrace
+
+      # ── 5. Rename APK to include version ─────────────────────────────────
+      - name: Rename APK
+        run: |
+          VERSION_NAME=$(./gradlew -q printVersionName 2>/dev/null || grep versionName app/build.gradle | awk '{print $2}' | tr -d '"')
+          mv app/build/outputs/apk/release/app-release.apk \
+             app/build/outputs/apk/release/InternetMeterX-${VERSION_NAME}.apk
+          echo "APK_PATH=app/build/outputs/apk/release/InternetMeterX-${VERSION_NAME}.apk" >> $GITHUB_ENV
+          echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV
+
+      # ── 6. Upload APK as workflow artifact (always available) ─────────────
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: InternetMeterX-${{ env.VERSION_NAME }}
+          path: ${{ env.APK_PATH }}
+          retention-days: 30
+
+      # ── 7. Create GitHub Release (only on version tags) ───────────────────
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.APK_PATH }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
